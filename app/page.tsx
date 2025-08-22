@@ -302,17 +302,6 @@ export default function HomePage() {
                     alt="Launch Visibility Map"
                     className="w-full rounded-lg border border-slate-600 max-h-96 object-contain"
                   />
-                  <div className="text-xs text-slate-300 flex justify-center space-x-6">
-                    <span>
-                      <span className="text-green-400">●</span> Almost Certain
-                    </span>
-                    <span>
-                      <span className="text-yellow-400">●</span> Very Likely
-                    </span>
-                    <span>
-                      <span className="text-orange-400">●</span> Good
-                    </span>
-                  </div>
                 </div>
               ) : (
                 <div className="bg-slate-700 rounded-lg p-6 text-slate-300 text-center">
