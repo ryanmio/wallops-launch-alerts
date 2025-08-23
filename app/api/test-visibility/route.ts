@@ -3,7 +3,7 @@ import { generateVisibilityMap } from "@/lib/visibility-map"
 
 export async function GET() {
   try {
-    console.log("[v0] Generating test visibility map...")
+    console.log("Generating test visibility map...")
     const mapBuffer = await generateVisibilityMap()
 
     return new NextResponse(mapBuffer, {

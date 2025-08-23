@@ -131,26 +131,26 @@ export default function HomePage() {
       try {
         setLaunchLoading(true)
         setLaunchError(null)
-        console.log("[v0] Fetching next launch from API...")
+        console.log("Fetching next launch from API...")
 
         const response = await fetch("/api/next-wallops")
-        console.log("[v0] API response status:", response.status)
+        console.log("API response status:", response.status)
 
         if (!response.ok) {
           throw new Error(`API returned ${response.status}`)
         }
 
         const data = await response.json()
-        console.log("[v0] API response data:", data)
+        console.log("API response data:", data)
 
         if (data.success && data.launches && data.launches.length > 0) {
-          console.log("[v0] First launch data:", data.launches[0])
+          console.log("First launch data:", data.launches[0])
           setNextLaunch(data.launches[0])
 
           setIsNightLaunch(data.isNightLaunch || false)
 
           if (data.isNightLaunch) {
-            console.log("[v0] Night launch detected, generating visibility map...")
+            console.log("Night launch detected, generating visibility map...")
             try {
               const mapResponse = await fetch("/api/visibility-map", {
                 method: "POST",
@@ -164,7 +164,7 @@ export default function HomePage() {
                 const mapBlob = await mapResponse.blob()
                 const mapUrl = URL.createObjectURL(mapBlob)
                 setVisibilityMapUrl(mapUrl)
-                console.log("[v0] Visibility map generated successfully")
+                console.log("Visibility map generated successfully")
               } else {
                 console.error("[v0] Failed to generate visibility map")
               }
@@ -189,22 +189,22 @@ export default function HomePage() {
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
     setStatus("loading")
-    console.log("[v0] Starting subscription process for:", email)
+            console.log("Starting subscription process for:", email)
 
     try {
-      console.log("[v0] Making subscription API request...")
+              console.log("Making subscription API request...")
       const response = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       })
 
-      console.log("[v0] Subscription API response status:", response.status)
+              console.log("Subscription API response status:", response.status)
       const data = await response.json()
-      console.log("[v0] Subscription API response data:", data)
+              console.log("Subscription API response data:", data)
 
       if (response.ok) {
-        console.log("[v0] Subscription successful")
+        console.log("Subscription successful")
         setStatus("success")
         setMessage("Check your email to confirm your subscription!")
         setEmail("")

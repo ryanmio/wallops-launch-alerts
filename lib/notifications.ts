@@ -35,12 +35,12 @@ export async function processLaunchNotifications(): Promise<ProcessingResult> {
   }
 
   try {
-    console.log("[v0] Starting launch notification processing")
+    console.log("Starting launch notification processing")
 
     // Get upcoming Wallops launches
     const launches = await getUpcomingWallopsLaunches()
     if (launches.length === 0) {
-      console.log("[v0] No upcoming Wallops launches found")
+      console.log("No upcoming Wallops launches found")
       return result
     }
 
@@ -49,7 +49,7 @@ export async function processLaunchNotifications(): Promise<ProcessingResult> {
     // Get active subscribers
     const subscribers = await getActiveSubscribers()
     if (subscribers.length === 0) {
-      console.log("[v0] No active subscribers found")
+      console.log("No active subscribers found")
       return result
     }
 
@@ -127,7 +127,7 @@ async function processLaunch(launch: any, subscribers: any[], result: Processing
 
   // Launch-day notification (single daily send)
   if (!newSnapshot.notifiedT24 && isLaunchTodayInET(launch.net)) {
-    console.log(`[v0] Sending launch-day notifications for ${launch.name}`)
+    console.log(`Sending launch-day notifications for ${launch.name}`)
     // Reuse "T24" email template which has launch-day wording now
     await sendNotificationsToSubscribers(launch, subscribers, "T24", result)
 

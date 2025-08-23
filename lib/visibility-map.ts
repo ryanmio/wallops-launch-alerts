@@ -61,7 +61,7 @@ export function isNightLaunch(netTime: string): boolean {
 
 export async function generateVisibilityMap(netTime: string): Promise<Buffer> {
   try {
-    console.log("[v0] Using static NASA visibility map asset...")
+    console.log("Using static NASA visibility map asset...")
 
     // Read the static NASA visibility map
     const imagePath = join(process.cwd(), "public", "images", "wallops-visibility-map.png")

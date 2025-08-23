@@ -6,15 +6,15 @@ export const revalidate = 600 // Revalidate every 10 minutes (600 seconds)
 
 export async function GET() {
   try {
-    console.log("[v0] Fetching upcoming Wallops launches...")
+    console.log("Fetching upcoming Wallops launches...")
     const launches = await getUpcomingWallopsLaunches()
-    console.log("[v0] Successfully fetched launches:", launches?.length || 0)
+          console.log("Successfully fetched launches:", launches?.length || 0)
 
     let nightLaunch = false
     if (launches && launches.length > 0) {
       try {
         nightLaunch = isNightLaunch(launches[0].net)
-        console.log("[v0] Night launch detection:", nightLaunch)
+        console.log("Night launch detection:", nightLaunch)
       } catch (error) {
         console.error("[v0] Error detecting night launch:", error)
       }

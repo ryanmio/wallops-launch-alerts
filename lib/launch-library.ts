@@ -220,5 +220,5 @@ export function hasSignificantScheduleSlip(oldNet: string, newNet: string): bool
 // Clear cache (useful for testing)
 export function clearCache(): void {
   cache.clear()
-  console.log("[v0] API cache cleared")
+      console.log("API cache cleared")
 }

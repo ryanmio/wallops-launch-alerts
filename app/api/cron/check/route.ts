@@ -22,7 +22,7 @@ function verifyCronRequest(request: NextRequest): boolean {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  console.log("[v0] Cron job started:", new Date().toISOString())
+  console.log("Cron job started:", new Date().toISOString())
 
   try {
     // Verify request authenticity
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Not allowed" }, { status: 403 })
   }
 
-  console.log("[v0] Manual cron test triggered")
+      console.log("Manual cron test triggered")
 
   // Reuse POST logic
   return POST(request)

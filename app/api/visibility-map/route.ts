@@ -9,11 +9,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Launch time is required" }, { status: 400 })
     }
 
-    console.log("[v0] Generating visibility map for launch:", launchTime)
+    console.log("Generating visibility map for launch:", launchTime)
 
     const mapBuffer = await generateVisibilityMap(launchTime)
 
-    console.log("[v0] Visibility map generated successfully")
+    console.log("Visibility map generated successfully")
 
     return new NextResponse(mapBuffer, {
       headers: {
