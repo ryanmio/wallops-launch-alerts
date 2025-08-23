@@ -33,8 +33,7 @@ export async function sendConfirmationEmail(email: string, token: string): Promi
                 Thanks for subscribing to Wallops Launch Alerts! You'll receive email notifications:
               </p>
               <ul style="margin-bottom: 25px; padding-left: 20px;">
-                <li><strong>24 hours before launch</strong> - Initial notification with launch details</li>
-                <li><strong>2 hours before launch</strong> - Final reminder with visibility info</li>
+                <li><strong>Launch-day alert</strong> (around noon ET) with launch details</li>
                 <li><strong>Night launches</strong> - Special visibility maps for East Coast viewing</li>
               </ul>
               
@@ -90,17 +89,17 @@ export async function sendLaunchNotification(
 
     switch (type) {
       case "T24":
-        subject = `🚀 Wallops launch tomorrow: ${launch.name}`
+        subject = `🚀 Wallops launch today: ${launch.name}`
         content = `
-          <h2>Launch Alert - T-24 Hours</h2>
-          <p><strong>${launch.name}</strong> is scheduled to launch tomorrow!</p>
+          <h2>Launch-Day Alert</h2>
+          <p><strong>${launch.name}</strong> is scheduled to launch today.</p>
         `
         break
       case "T2":
-        subject = `🚀 Wallops launch in 2 hours: ${launch.name}`
+        subject = `🚀 Wallops launch today: ${launch.name}`
         content = `
-          <h2>Final Launch Alert - T-2 Hours</h2>
-          <p><strong>${launch.name}</strong> launches in approximately 2 hours!</p>
+          <h2>Launch-Day Alert</h2>
+          <p><strong>${launch.name}</strong> is scheduled to launch today.</p>
         `
         break
       case "slip":
