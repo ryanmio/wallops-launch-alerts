@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     console.log(`[v0] Processing confirmation for ${normalizedEmail}`)
 
     // Verify token
-    const tokenResult = verifyConfirmationToken(token, normalizedEmail)
+    const tokenResult = await verifyConfirmationToken(token, normalizedEmail)
 
     if (!tokenResult.valid) {
       const errorMessage = tokenResult.expired
