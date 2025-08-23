@@ -394,10 +394,15 @@ export default function HomePage() {
         )}
 
         <div className="text-center">
-          <div className="glass-subtle rounded-xl p-4 max-w-md mx-auto">
-            <p className="text-slate-400 text-sm">
-              Powered by NASA Launch Library • Free service for space enthusiasts
-            </p>
+          <div className="text-slate-400 text-sm">
+            <a
+              href="https://github.com/ryanmio/wallops-launch-alerts"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-300 hover:text-white transition-colors"
+            >
+              GitHub
+            </a>
           </div>
         </div>
       </div>
