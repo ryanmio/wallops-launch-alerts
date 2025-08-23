@@ -125,21 +125,13 @@ async function processLaunch(launch: any, subscribers: any[], result: Processing
     return
   }
 
-  // Handle T-24h notifications
-  if (!newSnapshot.notifiedT24 && shouldNotifyForLaunch(launch, "T24")) {
-    console.log(`[v0] Sending T-24h notifications for ${launch.name}`)
+  // Launch-day notification (single daily send)
+  if (!newSnapshot.notifiedT24 && isLaunchTodayInET(launch.net)) {
+    console.log(`[v0] Sending launch-day notifications for ${launch.name}`)
+    // Reuse "T24" email template which has launch-day wording now
     await sendNotificationsToSubscribers(launch, subscribers, "T24", result)
 
     newSnapshot.notifiedT24 = true
-    await upsertLaunchSnapshot(newSnapshot)
-  }
-
-  // Handle T-2h notifications
-  if (!newSnapshot.notifiedT2 && shouldNotifyForLaunch(launch, "T2")) {
-    console.log(`[v0] Sending T-2h notifications for ${launch.name}`)
-    await sendNotificationsToSubscribers(launch, subscribers, "T2", result)
-
-    newSnapshot.notifiedT2 = true
     await upsertLaunchSnapshot(newSnapshot)
   }
 }
@@ -226,5 +218,46 @@ export async function resetNotificationFlags(launchId: string): Promise<void> {
     }
   } catch (error) {
     console.error(`[v0] Error resetting notification flags for launch ${launchId}:`, error)
+  }
+}
+
+// Helper: determine if launch is today in America/New_York
+function isLaunchTodayInET(launchIso: string): boolean {
+  try {
+    const tz = "America/New_York"
+    const now = new Date()
+    const launch = new Date(launchIso)
+
+    const nowParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(now)
+      .reduce<Record<string, string>>((acc, p) => {
+        if (p.type !== "literal") acc[p.type] = p.value
+        return acc
+      }, {})
+
+    const launchParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(launch)
+      .reduce<Record<string, string>>((acc, p) => {
+        if (p.type !== "literal") acc[p.type] = p.value
+        return acc
+      }, {})
+
+    return (
+      nowParts.year === launchParts.year &&
+      nowParts.month === launchParts.month &&
+      nowParts.day === launchParts.day
+    )
+  } catch {
+    return false
   }
 }
