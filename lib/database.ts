@@ -33,7 +33,7 @@ export interface LaunchSnapshot {
 export async function createSubscriber(email: string, regionHint?: string): Promise<Subscriber> {
   const result = await sql<Subscriber[]>`
     INSERT INTO subscribers (email, region_hint)
-    VALUES (${email}, ${regionHint})
+    VALUES (${email}, ${regionHint ?? null})
     RETURNING *
   `
   return result[0] as Subscriber
@@ -79,9 +79,9 @@ export async function upsertLaunchSnapshot(
       notified_t24, notified_t2, last_net_emailed
     )
     VALUES (
-      ${launch.ll2_id}, ${launch.net}, ${launch.window_start}, 
-      ${launch.window_end}, ${launch.status}, ${launch.notified_t24}, 
-      ${launch.notified_t2}, ${launch.last_net_emailed}
+      ${launch.ll2_id}, ${launch.net}, ${launch.window_start ?? null}, 
+      ${launch.window_end ?? null}, ${launch.status}, ${launch.notified_t24}, 
+      ${launch.notified_t2}, ${launch.last_net_emailed ?? null}
     )
     ON CONFLICT (ll2_id) 
     DO UPDATE SET
