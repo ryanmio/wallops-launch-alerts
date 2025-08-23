@@ -20,15 +20,21 @@ export async function GET() {
       }
     }
 
+    const launchesArray = launches || []
     const response = NextResponse.json({
       success: true,
-      launches: launches || [],
+      launches: launchesArray,
       isNightLaunch: nightLaunch,
       timestamp: new Date().toISOString(),
     })
 
-    // Set cache headers: cache for 5 minutes, stale-while-revalidate for 10 minutes
-    response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=600")
+    // Avoid caching empty results to prevent ISR from persisting transient failures/rate-limits
+    if (launchesArray.length === 0) {
+      response.headers.set("Cache-Control", "no-store")
+    } else {
+      // Cache for 5 minutes, allow serving stale for 10 minutes during background revalidation
+      response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=600")
+    }
 
     return response
   } catch (error) {
