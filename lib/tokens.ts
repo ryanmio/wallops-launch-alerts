@@ -1,19 +1,15 @@
+import { createHash, randomBytes } from "crypto"
+
 // Generate a secure confirmation token
 export async function generateConfirmationToken(email: string): Promise<string> {
   const timestamp = Date.now().toString()
-  const randomArray = new Uint8Array(16)
-  crypto.getRandomValues(randomArray)
-  const random = Array.from(randomArray, (byte) => byte.toString(16).padStart(2, "0")).join("")
+  const random = randomBytes(16).toString("hex")
   const payload = `${email}:${timestamp}:${random}`
 
-  // Create hash with secret key
   const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-  const encoder = new TextEncoder()
-  const data = encoder.encode(payload + secret)
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data)
-  const hash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
+  const hash = createHash("sha256").update(payload + secret).digest("hex")
 
-  const token = btoa(`${payload}:${hash}`)
+  const token = Buffer.from(`${payload}:${hash}`, "utf8").toString("base64")
   return token
 }
 
@@ -23,7 +19,7 @@ export async function verifyConfirmationToken(
   email: string,
 ): Promise<{ valid: boolean; expired?: boolean }> {
   try {
-    const decoded = atob(token)
+    const decoded = Buffer.from(token, "base64").toString("utf8")
     const parts = decoded.split(":")
 
     if (parts.length !== 4) {
@@ -32,12 +28,10 @@ export async function verifyConfirmationToken(
 
     const [tokenEmail, timestamp, random, hash] = parts
 
-    // Check if email matches
     if (tokenEmail !== email) {
       return { valid: false }
     }
 
-    // Check if token is expired (24 hours)
     const tokenTime = Number.parseInt(timestamp)
     const now = Date.now()
     const maxAge = 24 * 60 * 60 * 1000 // 24 hours
@@ -46,13 +40,9 @@ export async function verifyConfirmationToken(
       return { valid: false, expired: true }
     }
 
-    // Verify hash
     const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
     const payload = `${tokenEmail}:${timestamp}:${random}`
-    const encoder = new TextEncoder()
-    const data = encoder.encode(payload + secret)
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data)
-    const expectedHash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
+    const expectedHash = createHash("sha256").update(payload + secret).digest("hex")
 
     if (hash !== expectedHash) {
       return { valid: false }
@@ -68,18 +58,14 @@ export async function verifyConfirmationToken(
 // Generate unsubscribe token (simpler, longer-lived)
 export async function generateUnsubscribeToken(email: string): Promise<string> {
   const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-  const encoder = new TextEncoder()
-  const data = encoder.encode(email + secret)
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data)
-  const hash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
-
-  return btoa(`${email}:${hash}`)
+  const expectedHash = createHash("sha256").update(email + secret).digest("hex")
+  return Buffer.from(`${email}:${expectedHash}`, "utf8").toString("base64")
 }
 
 // Verify unsubscribe token
 export async function verifyUnsubscribeToken(token: string): Promise<{ valid: boolean; email?: string }> {
   try {
-    const decoded = atob(token)
+    const decoded = Buffer.from(token, "base64").toString("utf8")
     const parts = decoded.split(":")
 
     if (parts.length !== 2) {
@@ -88,12 +74,8 @@ export async function verifyUnsubscribeToken(token: string): Promise<{ valid: bo
 
     const [email, hash] = parts
 
-    // Verify hash
     const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-    const encoder = new TextEncoder()
-    const data = encoder.encode(email + secret)
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data)
-    const expectedHash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
+    const expectedHash = createHash("sha256").update(email + secret).digest("hex")
 
     if (hash !== expectedHash) {
       return { valid: false }
