@@ -3,7 +3,6 @@ import { getUpcomingWallopsLaunches } from "@/lib/launch-library"
 import { isNightLaunch } from "@/lib/visibility-map"
 
 export const revalidate = 600 // Revalidate every 10 minutes (600 seconds)
-export const dynamic = "force-dynamic" // Ensure fresh data for countdown
 
 export async function GET() {
   try {

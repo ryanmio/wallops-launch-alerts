@@ -72,7 +72,7 @@ let lastRequestTime = 0
 let requestCount = 0
 let hourlyResetTime = Date.now() + 60 * 60 * 1000 // Reset every hour
 
-const MAX_REQUESTS_PER_HOUR = 12 // Leave some buffer from the 15 limit
+const MAX_REQUESTS_PER_HOUR = 10 // Hard cap to 10/hour
 const MIN_REQUEST_INTERVAL = 30 * 1000 // 30 seconds minimum between requests
 
 async function makeApiRequest<T>(endpoint: string, cacheDuration: number = CACHE_DURATION): Promise<T | null> {
@@ -111,11 +111,14 @@ async function makeApiRequest<T>(endpoint: string, cacheDuration: number = CACHE
     const url = `https://ll.thespacedevs.com/2.3.0${endpoint}`
     console.log(`[v0] Making API request to: ${url}`)
 
+    // Use Next.js fetch caching with ISR revalidation to avoid exceeding API limits
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Wallops-Launch-Alerts/1.0",
       },
-    })
+      // Cache on the server for cacheDuration ms, then revalidate in background
+      next: { revalidate: Math.max(60, Math.floor(cacheDuration / 1000)) },
+    } as RequestInit)
 
     lastRequestTime = Date.now()
     requestCount++ // Increment request counter
@@ -139,8 +142,11 @@ async function makeApiRequest<T>(endpoint: string, cacheDuration: number = CACHE
 }
 
 export async function getUpcomingWallopsLaunches(): Promise<Launch[]> {
-  const now = new Date().toISOString()
-  const endpoint = `/launches/?pad__location=21&include_suborbital=true&net__gte=${now}&ordering=net&limit=10&mode=list`
+  // Round current time to the nearest 10 minutes to stabilize the cache key
+  const nowDate = new Date()
+  const roundedMs = Math.floor(nowDate.getTime() / (10 * 60 * 1000)) * (10 * 60 * 1000)
+  const roundedIso = new Date(roundedMs).toISOString()
+  const endpoint = `/launches/?pad__location=21&include_suborbital=true&net__gte=${roundedIso}&ordering=net&limit=10&mode=list`
 
   const response = await makeApiRequest<LaunchLibraryResponse<Launch>>(endpoint)
 
