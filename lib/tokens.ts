@@ -1,25 +1,29 @@
-import { createHash, randomBytes } from "crypto"
-
 // Generate a secure confirmation token
-export function generateConfirmationToken(email: string): string {
+export async function generateConfirmationToken(email: string): Promise<string> {
   const timestamp = Date.now().toString()
-  const random = randomBytes(16).toString("hex")
+  const randomArray = new Uint8Array(16)
+  crypto.getRandomValues(randomArray)
+  const random = Array.from(randomArray, (byte) => byte.toString(16).padStart(2, "0")).join("")
   const payload = `${email}:${timestamp}:${random}`
 
-  // Create HMAC with secret key
+  // Create hash with secret key
   const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-  const hash = createHash("sha256")
-    .update(payload + secret)
-    .digest("hex")
+  const encoder = new TextEncoder()
+  const data = encoder.encode(payload + secret)
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data)
+  const hash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
 
-  const token = Buffer.from(`${payload}:${hash}`).toString("base64")
+  const token = btoa(`${payload}:${hash}`)
   return token
 }
 
 // Verify and decode confirmation token
-export function verifyConfirmationToken(token: string, email: string): { valid: boolean; expired?: boolean } {
+export async function verifyConfirmationToken(
+  token: string,
+  email: string,
+): Promise<{ valid: boolean; expired?: boolean }> {
   try {
-    const decoded = Buffer.from(token, "base64").toString()
+    const decoded = atob(token)
     const parts = decoded.split(":")
 
     if (parts.length !== 4) {
@@ -45,9 +49,10 @@ export function verifyConfirmationToken(token: string, email: string): { valid: 
     // Verify hash
     const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
     const payload = `${tokenEmail}:${timestamp}:${random}`
-    const expectedHash = createHash("sha256")
-      .update(payload + secret)
-      .digest("hex")
+    const encoder = new TextEncoder()
+    const data = encoder.encode(payload + secret)
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data)
+    const expectedHash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
 
     if (hash !== expectedHash) {
       return { valid: false }
@@ -61,19 +66,20 @@ export function verifyConfirmationToken(token: string, email: string): { valid: 
 }
 
 // Generate unsubscribe token (simpler, longer-lived)
-export function generateUnsubscribeToken(email: string): string {
+export async function generateUnsubscribeToken(email: string): Promise<string> {
   const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-  const hash = createHash("sha256")
-    .update(email + secret)
-    .digest("hex")
+  const encoder = new TextEncoder()
+  const data = encoder.encode(email + secret)
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data)
+  const hash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
 
-  return Buffer.from(`${email}:${hash}`).toString("base64")
+  return btoa(`${email}:${hash}`)
 }
 
 // Verify unsubscribe token
-export function verifyUnsubscribeToken(token: string): { valid: boolean; email?: string } {
+export async function verifyUnsubscribeToken(token: string): Promise<{ valid: boolean; email?: string }> {
   try {
-    const decoded = Buffer.from(token, "base64").toString()
+    const decoded = atob(token)
     const parts = decoded.split(":")
 
     if (parts.length !== 2) {
@@ -84,9 +90,10 @@ export function verifyUnsubscribeToken(token: string): { valid: boolean; email?:
 
     // Verify hash
     const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-    const expectedHash = createHash("sha256")
-      .update(email + secret)
-      .digest("hex")
+    const encoder = new TextEncoder()
+    const data = encoder.encode(email + secret)
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data)
+    const expectedHash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("")
 
     if (hash !== expectedHash) {
       return { valid: false }
