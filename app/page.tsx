@@ -394,7 +394,7 @@ export default function HomePage() {
         )}
 
         <div className="text-center">
-          <div className="text-slate-400 text-sm">
+          <div className="text-slate-400 text-sm flex items-center justify-center gap-3">
             <a
               href="https://github.com/ryanmio/wallops-launch-alerts"
               target="_blank"
@@ -403,6 +403,10 @@ export default function HomePage() {
             >
               GitHub
             </a>
+            <span className="text-slate-600">•</span>
+            <a href="/terms" className="text-slate-300 hover:text-white transition-colors">Terms of Service</a>
+            <span className="text-slate-600">•</span>
+            <a href="/privacy" className="text-slate-300 hover:text-white transition-colors">Privacy Policy</a>
           </div>
         </div>
       </div>

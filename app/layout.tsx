@@ -17,18 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body>
-        <div className="min-h-screen flex flex-col">
-          <div className="flex-1">{children}</div>
-          <footer className="border-t border-white/15 text-slate-400 text-sm py-6">
-            <div className="mx-auto max-w-6xl px-4 text-center space-x-4">
-              <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
-              <span className="text-slate-600">•</span>
-              <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
-            </div>
-          </footer>
-        </div>
-      </body>
+      <body>{children}</body>
     </html>
   )
 }
