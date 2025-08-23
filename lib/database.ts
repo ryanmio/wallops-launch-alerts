@@ -1,6 +1,6 @@
-import { neon } from "@neondatabase/serverless"
+import postgres from "postgres"
 
-const sql = neon(process.env.DATABASE_URL!)
+const sql = postgres(process.env.DATABASE_URL!)
 
 export interface Subscriber {
   id: string
@@ -25,7 +25,7 @@ export interface LaunchSnapshot {
 
 // Subscriber operations
 export async function createSubscriber(email: string, regionHint?: string): Promise<Subscriber> {
-  const result = await sql`
+  const result = await sql<Subscriber[]>`
     INSERT INTO subscribers (email, region_hint)
     VALUES (${email}, ${regionHint})
     RETURNING *
@@ -34,7 +34,7 @@ export async function createSubscriber(email: string, regionHint?: string): Prom
 }
 
 export async function getSubscriber(email: string): Promise<Subscriber | null> {
-  const result = await sql`
+  const result = await sql<Subscriber[]>`
     SELECT * FROM subscribers WHERE email = ${email}
   `
   return (result[0] as Subscriber) || null
@@ -57,7 +57,7 @@ export async function deactivateSubscriber(email: string): Promise<void> {
 }
 
 export async function getActiveSubscribers(): Promise<Subscriber[]> {
-  const result = await sql`
+  const result = await sql<Subscriber[]>`
     SELECT * FROM subscribers WHERE active = true
   `
   return result as Subscriber[]
@@ -65,9 +65,9 @@ export async function getActiveSubscribers(): Promise<Subscriber[]> {
 
 // Launch snapshot operations
 export async function upsertLaunchSnapshot(
-  launch: Omit<LaunchSnapshot, "id" | "last_updated">,
+  launch: Omit<LaunchSnapshot, "id" | "last_updated">
 ): Promise<LaunchSnapshot> {
-  const result = await sql`
+  const result = await sql<LaunchSnapshot[]>`
     INSERT INTO launch_snapshots (
       ll2_id, net, window_start, window_end, status, 
       notified_t24, notified_t2, last_net_emailed
@@ -90,7 +90,7 @@ export async function upsertLaunchSnapshot(
 }
 
 export async function getLaunchSnapshot(ll2Id: string): Promise<LaunchSnapshot | null> {
-  const result = await sql`
+  const result = await sql<LaunchSnapshot[]>`
     SELECT * FROM launch_snapshots WHERE ll2_id = ${ll2Id}
   `
   return (result[0] as LaunchSnapshot) || null
@@ -100,33 +100,22 @@ export async function updateNotificationStatus(
   ll2Id: string,
   updates: { notified_t24?: boolean; notified_t2?: boolean; last_net_emailed?: string },
 ): Promise<void> {
-  const setParts = []
-  const values = []
+  const fieldsToUpdate: Record<string, unknown> = {}
+  if (updates.notified_t24 !== undefined) fieldsToUpdate.notified_t24 = updates.notified_t24
+  if (updates.notified_t2 !== undefined) fieldsToUpdate.notified_t2 = updates.notified_t2
+  if (updates.last_net_emailed !== undefined) fieldsToUpdate.last_net_emailed = updates.last_net_emailed
 
-  if (updates.notified_t24 !== undefined) {
-    setParts.push(`notified_t24 = $${setParts.length + 2}`)
-    values.push(updates.notified_t24)
-  }
-  if (updates.notified_t2 !== undefined) {
-    setParts.push(`notified_t2 = $${setParts.length + 2}`)
-    values.push(updates.notified_t2)
-  }
-  if (updates.last_net_emailed !== undefined) {
-    setParts.push(`last_net_emailed = $${setParts.length + 2}`)
-    values.push(updates.last_net_emailed)
-  }
+  if (Object.keys(fieldsToUpdate).length === 0) return
 
-  if (setParts.length > 0) {
-    await sql`
-      UPDATE launch_snapshots 
-      SET ${sql.unsafe(setParts.join(", "))}
-      WHERE ll2_id = ${ll2Id}
-    `.values([ll2Id, ...values])
-  }
+  await sql`
+    UPDATE launch_snapshots
+    SET ${sql(fieldsToUpdate)}
+    WHERE ll2_id = ${ll2Id}
+  `
 }
 
 export async function getUpcomingLaunches(): Promise<LaunchSnapshot[]> {
-  const result = await sql`
+  const result = await sql<LaunchSnapshot[]>`
     SELECT * FROM launch_snapshots 
     WHERE net > NOW() 
     ORDER BY net ASC
