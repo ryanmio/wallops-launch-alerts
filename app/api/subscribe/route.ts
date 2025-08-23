@@ -7,6 +7,16 @@ export async function POST(request: NextRequest) {
   console.log("[v0] Subscribe API called")
 
   try {
+    // Env diagnostics (no secrets logged)
+    const hasDbUrl = Boolean(process.env.DATABASE_URL)
+    const hasResend = Boolean(process.env.RESEND_API_KEY)
+    const hasTokenSecret = Boolean(process.env.TOKEN_SECRET)
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "unset"
+    console.log(
+      "[v0] Env checks:",
+      JSON.stringify({ DATABASE_URL: hasDbUrl, RESEND_API_KEY: hasResend, TOKEN_SECRET: hasTokenSecret, BASE_URL: baseUrl }),
+    )
+
     console.log("[v0] Parsing request body...")
     const body = await request.json()
     const { email, regionHint } = body
@@ -25,7 +35,13 @@ export async function POST(request: NextRequest) {
 
     // Check if subscriber already exists
     console.log("[v0] Checking for existing subscriber...")
-    const existingSubscriber = await getSubscriber(normalizedEmail)
+    let existingSubscriber = null
+    try {
+      existingSubscriber = await getSubscriber(normalizedEmail)
+    } catch (dbErr) {
+      console.error("[v0] DB error during getSubscriber:", dbErr)
+      throw new Error("DB_GET_SUBSCRIBER_FAILED")
+    }
 
     if (existingSubscriber) {
       if (existingSubscriber.active) {
@@ -45,13 +61,24 @@ export async function POST(request: NextRequest) {
     // Create or update subscriber
     if (!existingSubscriber) {
       console.log("[v0] Creating new subscriber...")
-      await createSubscriber(normalizedEmail, regionHint)
+      try {
+        await createSubscriber(normalizedEmail, regionHint)
+      } catch (dbErr) {
+        console.error("[v0] DB error during createSubscriber:", dbErr)
+        throw new Error("DB_CREATE_SUBSCRIBER_FAILED")
+      }
       console.log(`[v0] Created new subscriber: ${normalizedEmail}`)
     }
 
     // Generate confirmation token
     console.log("[v0] Generating confirmation token...")
-    const token = await generateConfirmationToken(normalizedEmail)
+    let token = ""
+    try {
+      token = await generateConfirmationToken(normalizedEmail)
+    } catch (tokenErr) {
+      console.error("[v0] Error generating token:", tokenErr)
+      throw new Error("TOKEN_GENERATION_FAILED")
+    }
     console.log("[v0] Confirmation token generated successfully")
 
     // Send confirmation email
@@ -79,6 +106,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[v0] Error in /api/subscribe:", error)
     console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    const errorCode = error instanceof Error ? error.message : "UNKNOWN_ERROR"
+    return NextResponse.json({ success: false, error: "Internal server error", errorCode }, { status: 500 })
   }
 }
