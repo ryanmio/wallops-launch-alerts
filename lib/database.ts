@@ -1,6 +1,12 @@
 import postgres from "postgres"
 
-const sql = postgres(process.env.DATABASE_URL!)
+// Configure for Supabase pooler compatibility
+// - ssl required (also set via ?sslmode=require in URL)
+// - disable prepared statements to avoid issues with some poolers
+const sql = postgres(process.env.DATABASE_URL!, {
+  ssl: "require",
+  prepare: false,
+})
 
 export interface Subscriber {
   id: string
