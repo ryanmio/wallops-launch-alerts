@@ -29,6 +29,24 @@ function LaunchCountdown({ launch }: { launch: Launch | null }) {
   useEffect(() => {
     if (!launch) return
 
+    // Start updating after a very short delay to feel responsive
+    const initialTimer = setTimeout(() => {
+      const now = new Date().getTime()
+      const launchTime = new Date(launch.net).getTime()
+      const difference = launchTime - now
+
+      if (difference > 0) {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((difference % (1000 * 60)) / 1000),
+        })
+      } else {
+        setTimeLeft(null)
+      }
+    }, 100)
+
     const timer = setInterval(() => {
       const now = new Date().getTime()
       const launchTime = new Date(launch.net).getTime()
@@ -46,7 +64,10 @@ function LaunchCountdown({ launch }: { launch: Launch | null }) {
       }
     }, 1000)
 
-    return () => clearInterval(timer)
+    return () => {
+      clearTimeout(initialTimer)
+      clearInterval(timer)
+    }
   }, [launch])
 
   if (!launch) {
