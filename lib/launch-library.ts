@@ -38,6 +38,10 @@ interface Launch {
     description: string
     type: string
   }
+  info_urls?: Array<{
+    url: string
+    description?: string
+  }>
   vid_urls?: Array<{
     priority: number
     source: string
@@ -146,7 +150,7 @@ export async function getUpcomingWallopsLaunches(): Promise<Launch[]> {
   const nowDate = new Date()
   const roundedMs = Math.floor(nowDate.getTime() / (10 * 60 * 1000)) * (10 * 60 * 1000)
   const roundedIso = new Date(roundedMs).toISOString()
-  const endpoint = `/launches/?pad__location=21&include_suborbital=true&net__gte=${roundedIso}&ordering=net&limit=10&mode=list`
+  const endpoint = `/launches/?pad__location=21&include_suborbital=true&net__gte=${roundedIso}&ordering=net&limit=10&mode=normal`
 
   const response = await makeApiRequest<LaunchLibraryResponse<Launch>>(endpoint)
 

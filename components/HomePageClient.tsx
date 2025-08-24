@@ -4,7 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Rocket, MapPin, Sparkles } from "lucide-react"
+import { Rocket, MapPin, Sparkles, Play, Info } from "lucide-react"
 
 interface Launch {
   id: string
@@ -16,6 +16,17 @@ interface Launch {
   mission?: {
     description: string
   }
+  vid_urls?: Array<{
+    url: string
+    title?: string
+    source?: string
+    publisher?: string
+    priority?: number
+  }>
+  info_urls?: Array<{
+    url: string
+    description?: string
+  }>
 }
 
 function LaunchCountdown({ launch }: { launch: Launch | null }) {
@@ -205,7 +216,7 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
               </div>
               <h1 className="text-4xl md:text-6xl font-bold text-white">Wallops Launch</h1>
             </div>
-            <p className="text-xl md:text-2xl text-slate-300 font-light">Live countdown to the next NASA Wallops rocket launch</p>
+            <p className="text-xl md:text-2xl text-slate-300 font-light">Live countdown to the next Wallops launch</p>
             <div className="mt-4 flex items-center justify-center space-x-2">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
               <span className="text-sm text-slate-400 uppercase tracking-wider">Real-time tracking</span>
@@ -252,7 +263,30 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
             ) : (
               <div className="glass rounded-2xl overflow-hidden h-full">
                 <div className="bg-white/10 p-6 text-center min-h-24 flex flex-col justify-center">
-                  <h2 className="text-white text-2xl md:text-3xl font-bold mb-2">{nextLaunch?.name || "Unknown Mission"}</h2>
+                  <h2 className="text-white text-2xl md:text-3xl font-bold mb-2">
+                    {nextLaunch ? (
+                      (() => {
+                        const infoUrl = nextLaunch.info_urls?.[0]?.url
+                        const videoUrl = nextLaunch.vid_urls?.[0]?.url
+                        const primaryLink = infoUrl || videoUrl || null
+                        if (primaryLink) {
+                          return (
+                            <a
+                              href={primaryLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline"
+                            >
+                              {nextLaunch.name}
+                            </a>
+                          )
+                        }
+                        return nextLaunch.name
+                      })()
+                    ) : (
+                      "Unknown Mission"
+                    )}
+                  </h2>
                   <p className="text-slate-300 flex items-center justify-center">
                     <MapPin className="h-4 w-4 mr-2" />
                     {nextLaunch?.pad?.name || "Wallops Flight Facility"}
@@ -265,6 +299,58 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
                       <p className="text-slate-300 text-sm md:text-base" suppressHydrationWarning>
                         {formattedDate ?? ""}
                       </p>
+                      <div className="mt-4 flex items-center justify-center gap-3">
+                        {(() => {
+                          const videoUrl = nextLaunch.vid_urls?.[0]?.url || null
+                          return (
+                            <div className="relative group">
+                              {videoUrl ? (
+                                <Button asChild className="bg-white text-slate-900 hover:bg-white/90">
+                                  <a href={videoUrl} target="_blank" rel="noopener noreferrer">
+                                    <Play className="h-4 w-4" />
+                                    Watch
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button disabled className="bg-white/40 text-slate-900/70 cursor-not-allowed">
+                                  <Play className="h-4 w-4" />
+                                  Watch
+                                </Button>
+                              )}
+                              {!videoUrl && (
+                                <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+                                  No stream provided
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+                        {(() => {
+                          const infoUrl = nextLaunch.info_urls?.[0]?.url || null
+                          return (
+                            <div className="relative group">
+                              {infoUrl ? (
+                                <Button asChild variant="outline">
+                                  <a href={infoUrl} target="_blank" rel="noopener noreferrer">
+                                    <Info className="h-4 w-4" />
+                                    More Info
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button disabled variant="outline" className="cursor-not-allowed">
+                                  <Info className="h-4 w-4" />
+                                  More Info
+                                </Button>
+                              )}
+                              {!infoUrl && (
+                                <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+                                  No info link provided
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -319,7 +405,7 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
             <div className="bg-white/10 p-6 text-center">
               <h3 className="text-white text-2xl font-bold flex items-center justify-center mb-2">
                 <MapPin className="h-6 w-6 mr-3 text-white" />
-                Night Launch - Visibility Map
+                Night Launch Visibility Map
               </h3>
               <p className="text-slate-300">This is a night launch! You may be able to see it from the East Coast.</p>
             </div>
