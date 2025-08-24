@@ -59,7 +59,7 @@ export default function ConfirmPage() {
           <p className="text-sm text-muted-foreground mb-4">{message}</p>
           {status === "success" && (
             <p className="text-sm text-green-600">
-              You'll receive notifications 24 hours and 2 hours before each Wallops launch.
+              You'll receive notifications on launch day at noon.
             </p>
           )}
           {status === "error" && (
