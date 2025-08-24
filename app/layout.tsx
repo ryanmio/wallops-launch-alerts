@@ -5,9 +5,19 @@ import { GeistMono } from "geist/font/mono"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
+  title: "Wallops Launch Alerts",
+  description: "Get notified about NASA Wallops launches",
   generator: "v0.app",
+  openGraph: {
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        type: "image/png",
+      },
+    ],
+  },
   icons: {
     icon: [
       { url: '/favicon.ico' },
