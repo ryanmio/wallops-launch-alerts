@@ -136,20 +136,7 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
 
   useEffect(() => {
     if (!nextLaunch || !isNightLaunch || visibilityMapUrl) return
-    ;(async () => {
-      try {
-        const mapResponse = await fetch("/api/visibility-map", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ launchTime: nextLaunch.net }),
-        })
-        if (mapResponse.ok) {
-          const mapBlob = await mapResponse.blob()
-          const mapUrl = URL.createObjectURL(mapBlob)
-          setVisibilityMapUrl(mapUrl)
-        }
-      } catch {}
-    })()
+    setVisibilityMapUrl("/images/wallops-visibility-map.png")
   }, [nextLaunch, isNightLaunch, visibilityMapUrl])
 
   useEffect(() => {
