@@ -19,31 +19,17 @@ interface Launch {
 }
 
 function LaunchCountdown({ launch }: { launch: Launch | null }) {
-  const computeTimeLeft = (l: Launch | null): {
-    days: number
-    hours: number
-    minutes: number
-    seconds: number
-  } | null => {
-    if (!l) return null
-    const now = Date.now()
-    const launchTime = new Date(l.net).getTime()
-    const difference = launchTime - now
-    if (difference <= 0) return null
-    return {
-      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-      hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-      minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-      seconds: Math.floor((difference % (1000 * 60)) / 1000),
-    }
-  }
-
+  const [hasMounted, setHasMounted] = useState(false)
   const [timeLeft, setTimeLeft] = useState<{
     days: number
     hours: number
     minutes: number
     seconds: number
-  } | null>(() => computeTimeLeft(launch))
+  } | null>(null)
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!launch) return
@@ -79,19 +65,7 @@ function LaunchCountdown({ launch }: { launch: Launch | null }) {
     )
   }
 
-  if (!timeLeft) {
-    const now = new Date().getTime()
-    const launchTime = new Date(launch.net).getTime()
-    const difference = launchTime - now
-
-    if (difference <= 0) {
-      return (
-        <div className="text-center">
-          <p className="text-white">Launch has occurred or is happening now!</p>
-        </div>
-      )
-    }
-
+  if (!hasMounted) {
     return (
       <div className="grid grid-cols-4 gap-3 text-center">
         <div>
@@ -110,6 +84,14 @@ function LaunchCountdown({ launch }: { launch: Launch | null }) {
           <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
           <div className="h-3 bg-white/10 rounded animate-pulse" />
         </div>
+      </div>
+    )
+  }
+
+  if (!timeLeft) {
+    return (
+      <div className="text-center">
+        <p className="text-white">Launch has occurred or is happening now!</p>
       </div>
     )
   }
