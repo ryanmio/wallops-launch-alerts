@@ -390,6 +390,10 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
                   </Button>
                 </form>
 
+                <p className="text-slate-400 text-xs mt-3 text-center">
+                  Your email is used for launch alerts only. It is not shared, sold, or used for any other purpose.
+                </p>
+
                 {message && (
                   <div className={`mt-4 glass-subtle rounded-xl p-4 ${status === "success" ? "border border-white/30" : "border border-red-500/30"}`}>
                     <p className={`text-sm ${status === "success" ? "text-white" : "text-red-400"}`}>{message}</p>
