@@ -29,9 +29,8 @@ function LaunchCountdown({ launch }: { launch: Launch | null }) {
   useEffect(() => {
     if (!launch) return
 
-    // Start updating after a very short delay to feel responsive
-    const initialTimer = setTimeout(() => {
-      const now = new Date().getTime()
+    const update = () => {
+      const now = Date.now()
       const launchTime = new Date(launch.net).getTime()
       const difference = launchTime - now
 
@@ -45,29 +44,12 @@ function LaunchCountdown({ launch }: { launch: Launch | null }) {
       } else {
         setTimeLeft(null)
       }
-    }, 100)
-
-    const timer = setInterval(() => {
-      const now = new Date().getTime()
-      const launchTime = new Date(launch.net).getTime()
-      const difference = launchTime - now
-
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((difference % (1000 * 60)) / 1000),
-        })
-      } else {
-        setTimeLeft(null)
-      }
-    }, 1000)
-
-    return () => {
-      clearTimeout(initialTimer)
-      clearInterval(timer)
     }
+
+    // Update immediately on client after hydration
+    update()
+    const timer = setInterval(update, 1000)
+    return () => clearInterval(timer)
   }, [launch])
 
   if (!launch) {
