@@ -128,6 +128,7 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
   const [visibilityMapUrl, setVisibilityMapUrl] = useState<string | null>(null)
   const [launchLoading, setLaunchLoading] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(initialLaunch ? null : "No upcoming launches found")
+  const [formattedDate, setFormattedDate] = useState<string | null>(null)
 
   useEffect(() => {
     if (!nextLaunch || !isNightLaunch || visibilityMapUrl) return
@@ -146,6 +147,27 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
       } catch {}
     })()
   }, [nextLaunch, isNightLaunch, visibilityMapUrl])
+
+  useEffect(() => {
+    if (!nextLaunch) {
+      setFormattedDate(null)
+      return
+    }
+    try {
+      const s = new Date(nextLaunch.net).toLocaleString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      })
+      setFormattedDate(s)
+    } catch {
+      setFormattedDate(new Date(nextLaunch.net).toISOString())
+    }
+  }, [nextLaunch])
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -249,16 +271,8 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
                   <LaunchCountdown launch={nextLaunch} />
                   {nextLaunch && (
                     <div className="mt-6 text-center">
-                      <p className="text-slate-300 text-sm md:text-base">
-                        {new Date(nextLaunch.net).toLocaleDateString("en-US", {
-                          weekday: "long",
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                          timeZoneName: "short",
-                        })}
+                      <p className="text-slate-300 text-sm md:text-base" suppressHydrationWarning>
+                        {formattedDate ?? ""}
                       </p>
                     </div>
                   )}
