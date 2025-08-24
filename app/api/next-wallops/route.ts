@@ -3,6 +3,7 @@ import { getUpcomingWallopsLaunches } from "@/lib/launch-library"
 import { isNightLaunch } from "@/lib/visibility-map"
 
 export const revalidate = 600 // Revalidate every 10 minutes (600 seconds)
+export const dynamic = "force-static"
 
 export async function GET() {
   try {
@@ -28,13 +29,8 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     })
 
-    // Avoid caching empty results to prevent ISR from persisting transient failures/rate-limits
-    if (launchesArray.length === 0) {
-      response.headers.set("Cache-Control", "no-store")
-    } else {
-      // Cache for 5 minutes, allow serving stale for 10 minutes during background revalidation
-      response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=600")
-    }
+    // Public cache for 10 minutes, serve stale while revalidating
+    response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=600")
 
     return response
   } catch (error) {
