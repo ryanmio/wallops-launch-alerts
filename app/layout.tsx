@@ -5,10 +5,14 @@ import { GeistMono } from "geist/font/mono"
 import "./globals.css"
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: "Wallops Launch Alerts",
   description: "Get notified about NASA Wallops launches",
-  generator: "v0.app",
   openGraph: {
+    title: "Wallops Launch Alerts",
+    description: "Get notified about NASA Wallops launches",
+    url: "/",
+    siteName: "Wallops Launch Alerts",
     images: [
       {
         url: "/opengraph-image",
@@ -17,6 +21,12 @@ export const metadata: Metadata = {
         type: "image/png",
       },
     ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Wallops Launch Alerts",
+    description: "Get notified about NASA Wallops launches",
+    images: ["/opengraph-image"],
   },
   icons: {
     icon: [
