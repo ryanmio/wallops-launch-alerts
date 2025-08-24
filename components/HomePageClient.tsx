@@ -19,18 +19,37 @@ interface Launch {
 }
 
 function LaunchCountdown({ launch }: { launch: Launch | null }) {
+  const computeTimeLeft = (l: Launch | null): {
+    days: number
+    hours: number
+    minutes: number
+    seconds: number
+  } | null => {
+    if (!l) return null
+    const now = Date.now()
+    const launchTime = new Date(l.net).getTime()
+    const difference = launchTime - now
+    if (difference <= 0) return null
+    return {
+      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((difference % (1000 * 60)) / 1000),
+    }
+  }
+
   const [timeLeft, setTimeLeft] = useState<{
     days: number
     hours: number
     minutes: number
     seconds: number
-  } | null>(null)
+  } | null>(() => computeTimeLeft(launch))
 
   useEffect(() => {
     if (!launch) return
 
-    const timer = setInterval(() => {
-      const now = new Date().getTime()
+    const update = () => {
+      const now = Date.now()
       const launchTime = new Date(launch.net).getTime()
       const difference = launchTime - now
 
@@ -44,8 +63,11 @@ function LaunchCountdown({ launch }: { launch: Launch | null }) {
       } else {
         setTimeLeft(null)
       }
-    }, 1000)
+    }
 
+    // Update immediately so there's no initial 1s delay
+    update()
+    const timer = setInterval(update, 1000)
     return () => clearInterval(timer)
   }, [launch])
 
