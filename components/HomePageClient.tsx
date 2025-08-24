@@ -140,14 +140,16 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
   const [message, setMessage] = useState("")
   const [nextLaunch, setNextLaunch] = useState<Launch | null>(initialLaunch)
   const [isNightLaunch, setIsNightLaunch] = useState(initialIsNightLaunch)
-  const [visibilityMapUrl, setVisibilityMapUrl] = useState<string | null>(null)
+  const [visibilityMapUrl, setVisibilityMapUrl] = useState<string | null>(
+    initialLaunch && initialIsNightLaunch ? "/images/wallops-visibility-map.webp" : null,
+  )
   const [launchLoading, setLaunchLoading] = useState(false)
   const [launchError, setLaunchError] = useState<string | null>(initialLaunch ? null : "No upcoming launches found")
   const [formattedDate, setFormattedDate] = useState<string | null>(null)
 
   useEffect(() => {
     if (!nextLaunch || !isNightLaunch || visibilityMapUrl) return
-    setVisibilityMapUrl("/images/wallops-visibility-map.png")
+    setVisibilityMapUrl("/images/wallops-visibility-map.webp")
   }, [nextLaunch, isNightLaunch, visibilityMapUrl])
 
   useEffect(() => {
@@ -404,7 +406,7 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
           </div>
         </div>
 
-        {isNightLaunch && nextLaunch && (
+        {visibilityMapUrl && nextLaunch && (
           <div className="glass rounded-2xl overflow-hidden mb-12">
             <div className="bg-white/10 p-6 text-center">
               <h3 className="text-white text-2xl font-bold flex items-center justify-center mb-2">
@@ -414,14 +416,7 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
               <p className="text-slate-300">This is a night launch! You may be able to see it from the East Coast.</p>
             </div>
             <div className="p-8">
-              {visibilityMapUrl ? (
-                <img src={visibilityMapUrl || "/placeholder.svg"} alt="Launch Visibility Map" className="w-full rounded-lg max-h-96 object-contain" />
-              ) : (
-                <div className="glass-subtle rounded-xl p-8 text-center">
-                  <div className="animate-spin w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-4" />
-                  <p className="text-slate-300">Generating visibility map...</p>
-                </div>
-              )}
+              <img src={visibilityMapUrl} alt="Launch Visibility Map" className="w-full rounded-lg max-h-96 object-contain" />
             </div>
           </div>
         )}

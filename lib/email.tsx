@@ -121,7 +121,7 @@ export async function sendLaunchNotification(
     const attachments = []
     if (visibilityMapBuffer) {
       attachments.push({
-        filename: "visibility-map.png",
+        filename: "visibility-map.webp",
         content: visibilityMapBuffer,
       })
     }

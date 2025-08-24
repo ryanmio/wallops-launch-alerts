@@ -64,7 +64,7 @@ export async function generateVisibilityMap(netTime: string): Promise<Buffer> {
     console.log("Using static NASA visibility map asset...")
 
     // Read the static NASA visibility map
-    const imagePath = join(process.cwd(), "public", "images", "wallops-visibility-map.png")
+    const imagePath = join(process.cwd(), "public", "images", "wallops-visibility-map.webp")
     const buffer = await readFile(imagePath)
 
     console.log(`[v0] Loaded NASA visibility map: ${buffer.length} bytes`)
