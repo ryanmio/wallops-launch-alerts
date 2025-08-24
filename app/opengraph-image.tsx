@@ -76,7 +76,7 @@ export default async function Image() {
   if (textLength > 82) fontSize = 24
 
   // Load the base image from /public
-  const baseImagePath = join(process.cwd(), "public", "og-share-base.png")
+  const baseImagePath = join(process.cwd(), "public", "og-share-base.jpg")
   const baseImageData = readFileSync(baseImagePath)
   const baseImageArrayBuffer = baseImageData.buffer.slice(
     baseImageData.byteOffset,
