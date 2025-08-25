@@ -423,9 +423,8 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
                 className="w-full rounded-lg max-h-96 object-contain"
                 width={1251}
                 height={948}
-                sizes="100vw"
-                loading="lazy"
-                priority={false}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 900px"
+                quality={60}
               />
             </div>
           </div>
