@@ -4,6 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import Image from "next/image"
 import { Rocket, MapPin, Sparkles, Play, Info } from "lucide-react"
 
 interface Launch {
@@ -416,7 +417,16 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
               <p className="text-slate-300">This is a night launch! You may be able to see it from the East Coast.</p>
             </div>
             <div className="p-8">
-              <img src={visibilityMapUrl} alt="Launch Visibility Map" className="w-full rounded-lg max-h-96 object-contain" />
+              <Image
+                src={visibilityMapUrl}
+                alt="Launch Visibility Map"
+                className="w-full rounded-lg max-h-96 object-contain"
+                width={1251}
+                height={948}
+                sizes="100vw"
+                loading="lazy"
+                priority={false}
+              />
             </div>
           </div>
         )}
