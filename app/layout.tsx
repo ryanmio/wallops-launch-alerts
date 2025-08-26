@@ -46,6 +46,11 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
+  themeColor: '#0f172a',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+  },
 }
 
 export default function RootLayout({

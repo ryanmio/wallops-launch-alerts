@@ -89,6 +89,10 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    background-color: #0f172a;
+  }
+
   body {
     /* Applied dark gradient background with glassmorphism base */
     @apply font-sans text-foreground;
