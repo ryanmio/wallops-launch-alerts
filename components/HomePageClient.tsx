@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
-import { Rocket, MapPin, Sparkles, Play, Info } from "lucide-react"
+import { MapPin, Play, Info } from "lucide-react"
 
 interface Launch {
   id: string
@@ -213,10 +213,6 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
         <div className="text-center mb-12">
           <div className="glass-subtle rounded-2xl p-8 mb-6 max-w-4xl mx-auto">
             <div className="flex items-center justify-center mb-4">
-              <div className="relative">
-                <Rocket className="h-12 w-12 text-white mr-4" />
-                <Sparkles className="h-4 w-4 text-white/70 absolute -top-1 -right-1 animate-pulse" />
-              </div>
               <h1 className="text-4xl md:text-6xl font-bold text-white">Wallops Launch</h1>
             </div>
             <p className="text-xl md:text-2xl text-slate-300 font-light">Live countdown to the next Wallops launch</p>
