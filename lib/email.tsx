@@ -4,13 +4,14 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function sendConfirmationEmail(email: string, token: string): Promise<boolean> {
   try {
+    const fromAddress = process.env.EMAIL_FROM || "Wallops Launch Alerts <onboarding@resend.dev>"
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
     const confirmUrl = `${baseUrl}/confirm?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`
 
     console.log(`[v0] Sending confirmation email to ${email}`)
 
     const { data, error } = await resend.emails.send({
-      from: "Wallops Launch Alerts <onboarding@resend.dev>",
+      from: fromAddress,
       to: [email],
       subject: "Confirm your Wallops Launch Alert subscription",
       html: `
@@ -81,6 +82,8 @@ export async function sendLaunchNotification(
   try {
     console.log(`[v0] Sending ${type} notification to ${email} for launch ${launch.name}`)
 
+    const fromAddress = process.env.EMAIL_FROM || "Wallops Launch Alerts <onboarding@resend.dev>"
+
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
     const unsubscribeUrl = `${baseUrl}/unsubscribe?email=${encodeURIComponent(email)}`
 
@@ -127,7 +130,7 @@ export async function sendLaunchNotification(
     }
 
     const { data, error } = await resend.emails.send({
-      from: "Wallops Launch Alerts <onboarding@resend.dev>",
+      from: fromAddress,
       to: [email],
       subject,
       html: `

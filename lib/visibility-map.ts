@@ -59,7 +59,7 @@ export function isNightLaunch(netTime: string): boolean {
   }
 }
 
-export async function generateVisibilityMap(netTime: string): Promise<Buffer> {
+export async function generateVisibilityMap(): Promise<Buffer> {
   try {
     console.log("Using static NASA visibility map asset...")
 

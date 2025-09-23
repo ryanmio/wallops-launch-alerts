@@ -1,4 +1,9 @@
-import { getActiveSubscribers, upsertLaunchSnapshot, getLaunchSnapshot } from "@/lib/database"
+import {
+  getActiveSubscribers,
+  upsertLaunchSnapshot,
+  getLaunchSnapshot,
+  updateNotificationStatus,
+} from "@/lib/database"
 import {
   getUpcomingWallopsLaunches,
   getLaunchDetail,
@@ -8,18 +13,8 @@ import {
 import { sendLaunchNotification } from "@/lib/email"
 import { isNightLaunch, generateVisibilityMap } from "@/lib/visibility-map"
 
-interface LaunchSnapshot {
-  id: string
-  ll2Id: string
-  net: string
-  windowStart?: string | null
-  windowEnd?: string | null
-  status: string
-  lastUpdated: string
-  notifiedT24: boolean
-  notifiedT2: boolean
-  lastNetEmailed?: string | null
-}
+// Use DB shape for snapshots (snake_case) to avoid undefined values during SQL upserts
+import type { LaunchSnapshot as DbLaunchSnapshot } from "@/lib/database"
 
 interface ProcessingResult {
   processed: number
@@ -84,24 +79,22 @@ async function processLaunch(launch: any, subscribers: any[], result: Processing
   const snapshot = await getLaunchSnapshot(launch.id)
 
   const isNewLaunch = !snapshot
-  const hasStatusChange = snapshot && snapshot.status !== launch.status.name
-  const hasScheduleChange = snapshot && hasSignificantScheduleSlip(snapshot.net, launch.net)
+  const hasStatusChange = Boolean(snapshot && snapshot.status !== launch.status.name)
+  const hasScheduleChange = Boolean(snapshot && hasSignificantScheduleSlip(snapshot.net, launch.net))
 
   // Update or create snapshot
-  const newSnapshot: LaunchSnapshot = {
-    id: launch.id,
-    ll2Id: launch.id,
+  const upsertPayload: Omit<DbLaunchSnapshot, "id" | "last_updated"> = {
+    ll2_id: launch.id,
     net: launch.net,
-    windowStart: launch.window_start || null,
-    windowEnd: launch.window_end || null,
+    window_start: launch.window_start ?? null,
+    window_end: launch.window_end ?? null,
     status: launch.status.name,
-    lastUpdated: launch.last_updated,
-    notifiedT24: snapshot?.notifiedT24 || false,
-    notifiedT2: snapshot?.notifiedT2 || false,
-    lastNetEmailed: snapshot?.lastNetEmailed || null,
+    notified_t24: snapshot?.notified_t24 ?? false,
+    notified_t2: snapshot?.notified_t2 ?? false,
+    last_net_emailed: snapshot?.last_net_emailed ?? null,
   }
 
-  await upsertLaunchSnapshot(newSnapshot)
+  await upsertLaunchSnapshot(upsertPayload)
 
   // Handle scrub/hold notifications
   if (hasStatusChange && (launch.status.name.includes("Hold") || launch.status.name.includes("Scrub"))) {
@@ -115,24 +108,22 @@ async function processLaunch(launch: any, subscribers: any[], result: Processing
     console.log(`[v0] Launch ${launch.name} has significant schedule slip`)
 
     // Only send slip notification if we haven't already notified for this NET
-    if (snapshot.lastNetEmailed !== launch.net) {
+    if (snapshot.last_net_emailed !== launch.net) {
       await sendNotificationsToSubscribers(launch, subscribers, "slip", result)
 
-      // Update the snapshot to record this NET was emailed
-      newSnapshot.lastNetEmailed = launch.net
-      await upsertLaunchSnapshot(newSnapshot)
+      // Record that this NET was emailed
+      await updateNotificationStatus(launch.id, { last_net_emailed: launch.net })
     }
     return
   }
 
   // Launch-day notification (single daily send)
-  if (!newSnapshot.notifiedT24 && isLaunchTodayInET(launch.net)) {
+  if (!(snapshot?.notified_t24 ?? false) && isLaunchTodayInET(launch.net)) {
     console.log(`Sending launch-day notifications for ${launch.name}`)
     // Reuse "T24" email template which has launch-day wording now
     await sendNotificationsToSubscribers(launch, subscribers, "T24", result)
 
-    newSnapshot.notifiedT24 = true
-    await upsertLaunchSnapshot(newSnapshot)
+    await updateNotificationStatus(launch.id, { notified_t24: true })
   }
 }
 
@@ -207,13 +198,11 @@ export async function resetNotificationFlags(launchId: string): Promise<void> {
   try {
     const snapshot = await getLaunchSnapshot(launchId)
     if (snapshot) {
-      const resetSnapshot: LaunchSnapshot = {
-        ...snapshot,
-        notifiedT24: false,
-        notifiedT2: false,
-        lastNetEmailed: null,
-      }
-      await upsertLaunchSnapshot(resetSnapshot)
+      await updateNotificationStatus(launchId, {
+        notified_t24: false,
+        notified_t2: false,
+        last_net_emailed: null,
+      })
       console.log(`[v0] Reset notification flags for launch ${launchId}`)
     }
   } catch (error) {

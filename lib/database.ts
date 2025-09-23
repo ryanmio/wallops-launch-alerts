@@ -89,6 +89,9 @@ export async function upsertLaunchSnapshot(
       window_start = EXCLUDED.window_start,
       window_end = EXCLUDED.window_end,
       status = EXCLUDED.status,
+      notified_t24 = COALESCE(EXCLUDED.notified_t24, launch_snapshots.notified_t24),
+      notified_t2 = COALESCE(EXCLUDED.notified_t2, launch_snapshots.notified_t2),
+      last_net_emailed = COALESCE(EXCLUDED.last_net_emailed, launch_snapshots.last_net_emailed),
       last_updated = NOW()
     RETURNING *
   `
@@ -104,7 +107,7 @@ export async function getLaunchSnapshot(ll2Id: string): Promise<LaunchSnapshot |
 
 export async function updateNotificationStatus(
   ll2Id: string,
-  updates: { notified_t24?: boolean; notified_t2?: boolean; last_net_emailed?: string },
+  updates: { notified_t24?: boolean; notified_t2?: boolean; last_net_emailed?: string | null },
 ): Promise<void> {
   const fieldsToUpdate: Record<string, unknown> = {}
   if (updates.notified_t24 !== undefined) fieldsToUpdate.notified_t24 = updates.notified_t24
