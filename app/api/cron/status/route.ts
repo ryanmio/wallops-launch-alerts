@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getUpcomingLaunches, getActiveSubscribers } from "@/lib/database"
 import { getUpcomingWallopsLaunches } from "@/lib/launch-library"
+import { isAuthorizedCronRequest } from "@/lib/cron-utils"
+
+export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
-    // Basic auth check
-    const authHeader = request.headers.get("authorization")
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!isAuthorizedCronRequest(request)) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 

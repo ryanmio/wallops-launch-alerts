@@ -3,6 +3,8 @@ import { createSubscriber, getSubscriber } from "@/lib/database"
 import { sendConfirmationEmail } from "@/lib/email"
 import { generateConfirmationToken } from "@/lib/tokens"
 
+const CHECK_EMAIL_MESSAGE = "Please check your email and click the confirmation link to complete your subscription."
+
 export async function POST(request: NextRequest) {
   console.log("Subscribe API called")
 
@@ -45,14 +47,9 @@ export async function POST(request: NextRequest) {
 
     if (existingSubscriber) {
       if (existingSubscriber.active) {
+        // Respond exactly as for a new signup so this can't be used to look up subscribers
         console.log("Subscriber already exists and is active")
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Email is already subscribed to launch alerts",
-          },
-          { status: 409 },
-        )
+        return NextResponse.json({ success: true, message: CHECK_EMAIL_MESSAGE })
       } else {
         console.log("Subscriber exists but is inactive, will reactivate")
       }
@@ -99,14 +96,10 @@ export async function POST(request: NextRequest) {
     console.log(`[v0] Confirmation email sent successfully to ${normalizedEmail}`)
     console.log(`[v0] Subscription request processed successfully for ${normalizedEmail}`)
 
-    return NextResponse.json({
-      success: true,
-      message: "Please check your email and click the confirmation link to complete your subscription.",
-    })
+    return NextResponse.json({ success: true, message: CHECK_EMAIL_MESSAGE })
   } catch (error) {
     console.error("[v0] Error in /api/subscribe:", error)
     console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
-    const errorCode = error instanceof Error ? error.message : "UNKNOWN_ERROR"
-    return NextResponse.json({ success: false, error: "Internal server error", errorCode }, { status: 500 })
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }

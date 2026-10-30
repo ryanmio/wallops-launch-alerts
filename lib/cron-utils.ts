@@ -1,5 +1,21 @@
 // Utility functions for cron job management and monitoring
 
+import { timingSafeEqual } from "crypto"
+
+// Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` when CRON_SECRET is set on the project.
+// Fails closed: if CRON_SECRET isn't configured, every request is rejected.
+export function isAuthorizedCronRequest(request: Request): boolean {
+  const secret = process.env.CRON_SECRET
+  if (!secret) {
+    console.error("[v0] CRON_SECRET is not configured; rejecting cron request")
+    return false
+  }
+
+  const provided = Buffer.from(request.headers.get("authorization") ?? "")
+  const expected = Buffer.from(`Bearer ${secret}`)
+  return provided.length === expected.length && timingSafeEqual(provided, expected)
+}
+
 export interface CronJobResult {
   success: boolean
   duration: number
@@ -82,6 +98,10 @@ export async function checkCronHealth(): Promise<{
   // Check environment variables
   if (!process.env.CRON_SECRET) {
     issues.push("CRON_SECRET not configured")
+  }
+
+  if (!process.env.TOKEN_SECRET) {
+    issues.push("TOKEN_SECRET not configured")
   }
 
   if (!process.env.RESEND_API_KEY) {
