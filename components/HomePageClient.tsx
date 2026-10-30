@@ -176,13 +176,15 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Honeypot: hidden from people, but form-filling bots tend to fill it in
+    const website = new FormData(e.currentTarget as HTMLFormElement).get("website") || ""
     setStatus("loading")
 
     try {
       const response = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, website }),
       })
 
       const data = await response.json()
@@ -365,6 +367,10 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
               </div>
               <div className="p-6 flex-1 flex flex-col justify-center">
                 <form onSubmit={handleSubscribe} className="space-y-4">
+                  <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
+                    <label htmlFor="website">Website</label>
+                    <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+                  </div>
                   <Input
                     type="email"
                     placeholder="your@email.com"
