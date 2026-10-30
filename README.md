@@ -4,7 +4,7 @@ A comprehensive email alert service for NASA Wallops launches with night visibil
 
 ## Features
 
-- **Automated Notifications**: T-24h and T-2h email alerts for all Wallops launches
+- **Automated Notifications**: One email alert before each Wallops launch, sent 0–26h ahead
 - **Night Launch Detection**: Automatic detection of night launches using solar elevation calculations
 - **Visibility Maps**: Generated visibility maps showing potential rocket plume visibility along the East Coast
 - **Schedule Slip Detection**: Automatic detection and notification of launch delays ≥15 minutes
@@ -114,11 +114,10 @@ The service respects Launch Library 2's free tier limits:
 
 ## Launch Detection Logic
 
-1. **T-24h Notifications**: Sent between 24h and 23h before launch
-2. **T-2h Notifications**: Sent between 2h and 1h before launch  
-3. **Schedule Slips**: Detected when NET changes by ≥15 minutes
-4. **Night Detection**: Solar elevation ≤ -6° at Wallops coordinates
-5. **Status Filtering**: Only notifies for 'Go', 'TBD', 'TBC' statuses
+1. **Launch Alerts**: The daily cron (16:00 UTC) emails about any launch in the next 26 hours that hasn't been alerted yet, so morning launches are announced the day before
+2. **Schedule Slips / Scrubs**: Emailed only for launches subscribers were already alerted about; a slip re-arms the alert for the new date (slips are NET changes of ≥15 minutes)
+3. **Night Detection**: Solar elevation ≤ -6° at Wallops coordinates
+4. **Times**: Shown in Eastern time
 
 ## Visibility Map Generation
 

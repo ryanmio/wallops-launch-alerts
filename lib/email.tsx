@@ -35,7 +35,7 @@ export async function sendConfirmationEmail(email: string, token: string): Promi
                 Thanks for subscribing to Wallops Launch Alerts! You'll receive email notifications:
               </p>
               <ul style="margin-bottom: 25px; padding-left: 20px;">
-                <li><strong>Launch-day alert</strong> (around noon ET) with launch details</li>
+                <li><strong>Launch alert</strong> around noon ET the day before or the day of each launch</li>
                 <li><strong>Night launches</strong> - Special visibility maps for East Coast viewing</li>
               </ul>
               
@@ -74,6 +74,35 @@ export async function sendConfirmationEmail(email: string, token: string): Promi
   }
 }
 
+const ET = "America/New_York"
+
+function etDateKey(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: ET, year: "numeric", month: "2-digit", day: "2-digit" }).format(date)
+}
+
+// "today" / "tomorrow" / "on Sat, Nov 1", relative to the current date in Eastern time
+function launchDayLabel(launchIso: string): string {
+  const launch = new Date(launchIso)
+  const now = new Date()
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+  if (etDateKey(launch) === etDateKey(now)) return "today"
+  if (etDateKey(launch) === etDateKey(tomorrow)) return "tomorrow"
+  return `on ${new Intl.DateTimeFormat("en-US", { timeZone: ET, weekday: "short", month: "short", day: "numeric" }).format(launch)}`
+}
+
+// e.g. "Fri, Oct 31, 6:15 AM EDT" (servers run in UTC, so the zone must be explicit)
+function formatLaunchTimeET(launchIso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: ET,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(launchIso))
+}
+
 export async function sendLaunchNotification(
   email: string,
   launch: any,
@@ -93,18 +122,20 @@ export async function sendLaunchNotification(
     let content = ""
 
     switch (type) {
-      case "T24":
-        subject = `🚀 Wallops launch today: ${launch.name}`
+      case "T24": {
+        const day = launchDayLabel(launch.net)
+        subject = `🚀 Wallops launch ${day}: ${launch.name}`
         content = `
-          <h2>Launch-Day Alert</h2>
-          <p><strong>${launch.name}</strong> is scheduled to launch today.</p>
+          <h2>Launch Alert</h2>
+          <p><strong>${launch.name}</strong> is scheduled to launch ${day}.</p>
         `
         break
+      }
       case "T2":
         subject = `🚀 Wallops launch today: ${launch.name}`
         content = `
-          <h2>Launch-Day Alert</h2>
-          <p><strong>${launch.name}</strong> is scheduled to launch today.</p>
+          <h2>Launch Alert</h2>
+          <p><strong>${launch.name}</strong> is scheduled to launch ${launchDayLabel(launch.net)}.</p>
         `
         break
       case "slip":
@@ -150,7 +181,7 @@ export async function sendLaunchNotification(
             
             <div style="background: #f8fafc; padding: 30px; border-radius: 10px; border-left: 4px solid #f97316;">
               ${content}
-              <p><strong>Launch Time:</strong> ${new Date(launch.net).toLocaleString()}</p>
+              <p><strong>Launch Time:</strong> ${formatLaunchTimeET(launch.net)}</p>
               <p><strong>Location:</strong> ${launch.pad?.name || "Wallops Flight Facility"}</p>
               ${launch.mission?.description ? `<p><strong>Mission:</strong> ${launch.mission.description}</p>` : ""}
             </div>
