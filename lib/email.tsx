@@ -29,7 +29,7 @@ export async function sendConfirmationEmail(email: string, token: string): Promi
               <p style="color: #e2e8f0; margin: 10px 0 0 0; font-size: 16px;">Confirm your subscription</p>
             </div>
             
-            <div style="background: #f8fafc; padding: 30px; border-radius: 10px; border-left: 4px solid #f97316;">
+            <div style="background: #f8fafc; padding: 30px; border-radius: 10px;">
               <h2 style="color: #1e293b; margin-top: 0;">Almost there!</h2>
               <p style="margin-bottom: 25px;">
                 Thanks for subscribing to Wallops Launch Alerts! You'll receive email notifications:
@@ -179,7 +179,7 @@ export async function sendLaunchNotification(
               <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🚀 Wallops Launch Alerts</h1>
             </div>
             
-            <div style="background: #f8fafc; padding: 30px; border-radius: 10px; border-left: 4px solid #f97316;">
+            <div style="background: #f8fafc; padding: 30px; border-radius: 10px;">
               ${content}
               <p><strong>Launch Time:</strong> ${formatLaunchTimeET(launch.net)}</p>
               <p><strong>Location:</strong> ${launch.pad?.name || "Wallops Flight Facility"}</p>
@@ -236,7 +236,7 @@ export async function sendUnsubscribeLinkEmail(email: string): Promise<boolean> 
               <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🚀 Wallops Launch Alerts</h1>
             </div>
 
-            <div style="background: #f8fafc; padding: 30px; border-radius: 10px; border-left: 4px solid #f97316;">
+            <div style="background: #f8fafc; padding: 30px; border-radius: 10px;">
               <p>We received a request to unsubscribe this address from Wallops Launch Alerts.</p>
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${unsubscribeUrl}"
