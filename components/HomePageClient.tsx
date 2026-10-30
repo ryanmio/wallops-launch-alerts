@@ -361,7 +361,7 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
             <div className="glass rounded-2xl overflow-hidden h-full flex flex-col">
               <div className="bg-white/10 p-6 min-h-24 flex flex-col justify-center">
                 <h3 className="text-white text-xl font-bold mb-2">Get Launch Alerts</h3>
-                <p className="text-slate-300 text-sm">Launch-day email alert (around noon ET)</p>
+                <p className="text-slate-300 text-sm">One email before each launch (around noon ET)</p>
               </div>
               <div className="p-6 flex-1 flex flex-col justify-center">
                 <form onSubmit={handleSubscribe} className="space-y-4">

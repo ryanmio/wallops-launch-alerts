@@ -59,7 +59,7 @@ export default function ConfirmPage() {
           <p className="text-sm text-muted-foreground mb-4">{message}</p>
           {status === "success" && (
             <p className="text-sm text-green-600">
-              You'll receive notifications on launch day at noon.
+              You'll get an email around noon ET the day before or the day of each launch.
             </p>
           )}
           {status === "error" && (

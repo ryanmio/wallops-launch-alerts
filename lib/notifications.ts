@@ -96,7 +96,7 @@ async function processLaunch(launch: any, subscribers: any[], result: Processing
 
   await upsertLaunchSnapshot(upsertPayload)
 
-  // Subscribers only hear about a launch on its day, so scrub/slip emails are only sent for launches
+  // Subscribers only hear about a launch shortly before it, so scrub/slip emails are only sent for launches
   // they've already been alerted about. Otherwise placeholder NETs (e.g. "end of year") that Launch
   // Library moves around would generate a stream of meaningless "rescheduled" emails.
   const alreadyAlerted = snapshot?.notified_t24 ?? false
@@ -118,20 +118,20 @@ async function processLaunch(launch: any, subscribers: any[], result: Processing
   if (alreadyAlerted && hasScheduleChange && snapshot) {
     console.log(`[v0] Launch ${launch.name} has significant schedule slip`)
 
-    // If it slipped onto today, the launch-day email below covers it
-    if (!isLaunchTodayInET(launch.net) && snapshot.last_net_emailed !== launch.net) {
+    // If it slipped into the alert window, the launch alert below covers it
+    if (!isWithinAlertWindow(launch.net) && snapshot.last_net_emailed !== launch.net) {
       await sendNotificationsToSubscribers(launch, subscribers, "slip", result)
     }
 
-    // Re-arm the launch-day email for the new date
+    // Re-arm the launch alert for the new date
     await updateNotificationStatus(launch.id, { notified_t24: false, last_net_emailed: launch.net })
     notifiedLaunchDay = false
   }
 
-  // Launch-day notification (single daily send)
-  if (!notifiedLaunchDay && isLaunchTodayInET(launch.net)) {
-    console.log(`Sending launch-day notifications for ${launch.name}`)
-    // Reuse "T24" email template which has launch-day wording now
+  // Launch alert: one email per launch, sent by the last daily run before it
+  if (!notifiedLaunchDay && isWithinAlertWindow(launch.net)) {
+    console.log(`Sending launch alerts for ${launch.name}`)
+    // "T24" template says "today"/"tomorrow" with the time in ET
     await sendNotificationsToSubscribers(launch, subscribers, "T24", result)
 
     await updateNotificationStatus(launch.id, { notified_t24: true })
@@ -221,43 +221,11 @@ export async function resetNotificationFlags(launchId: string): Promise<void> {
   }
 }
 
-// Helper: determine if launch is today in America/New_York
-function isLaunchTodayInET(launchIso: string): boolean {
-  try {
-    const tz = "America/New_York"
-    const now = new Date()
-    const launch = new Date(launchIso)
+// The cron runs once a day (16:00 UTC), so alert for anything launching before the next run.
+// 26h rather than 24h covers Vercel starting the cron anywhere within its scheduled hour.
+const ALERT_WINDOW_MS = 26 * 60 * 60 * 1000
 
-    const nowParts = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-      .formatToParts(now)
-      .reduce<Record<string, string>>((acc, p) => {
-        if (p.type !== "literal") acc[p.type] = p.value
-        return acc
-      }, {})
-
-    const launchParts = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-      .formatToParts(launch)
-      .reduce<Record<string, string>>((acc, p) => {
-        if (p.type !== "literal") acc[p.type] = p.value
-        return acc
-      }, {})
-
-    return (
-      nowParts.year === launchParts.year &&
-      nowParts.month === launchParts.month &&
-      nowParts.day === launchParts.day
-    )
-  } catch {
-    return false
-  }
+function isWithinAlertWindow(launchIso: string): boolean {
+  const msUntilLaunch = new Date(launchIso).getTime() - Date.now()
+  return msUntilLaunch >= 0 && msUntilLaunch < ALERT_WINDOW_MS
 }
