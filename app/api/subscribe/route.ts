@@ -21,7 +21,13 @@ export async function POST(request: NextRequest) {
 
     console.log("Parsing request body...")
     const body = await request.json()
-    const { email, regionHint } = body
+    const { email, regionHint, website } = body
+
+    // Honeypot field is invisible to people; if it's filled in, it's a bot. Pretend it worked.
+    if (website) {
+      console.log("[v0] Honeypot triggered; ignoring signup")
+      return NextResponse.json({ success: true, message: CHECK_EMAIL_MESSAGE })
+    }
     console.log("Request body parsed:", { email: email ? "***@***" : "missing", regionHint })
 
     // Validate email format
