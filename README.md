@@ -18,7 +18,7 @@ A comprehensive email alert service for NASA Wallops launches with night visibil
 1. **Database Layer** (`lib/database.ts`)
    - Subscriber management with double opt-in
    - Launch snapshot tracking for schedule changes
-   - PostgreSQL with Neon integration
+   - PostgreSQL (Supabase) via direct connection
 
 2. **Launch Library Integration** (`lib/launch-library.ts`)
    - Cached API calls to Launch Library 2
@@ -41,7 +41,7 @@ A comprehensive email alert service for NASA Wallops launches with night visibil
    - Status checking endpoints
 
 6. **Cron Scheduler** (`app/api/cron/check/`)
-   - Automated processing every 30 minutes
+   - Automated processing daily at 16:00 UTC
    - Idempotent operation handling
    - Comprehensive error logging
 
@@ -51,17 +51,22 @@ A comprehensive email alert service for NASA Wallops launches with night visibil
 - `GET /api/confirm` - Email confirmation handling
 - `POST /api/unsubscribe` - Subscription cancellation
 - `GET /api/next-wallops` - Cached upcoming launches
-- `POST /api/cron/check` - Main notification processing (cron)
+- `GET /api/cron/check` - Main notification processing (Vercel Cron; `POST` also accepted for manual runs)
 - `GET /api/health` - System health monitoring
 
 ### Environment Variables
 
 Required:
-- `DATABASE_URL` - Neon PostgreSQL connection
+- `DATABASE_URL` - Postgres connection string (Supabase pooler), server-only
 - `RESEND_API_KEY` - Email service API key
-- `CRON_SECRET` - Security token for cron endpoints
-- `TOKEN_SECRET` - Encryption key for confirmation tokens
+- `CRON_SECRET` - Long random string; Vercel Cron sends it as `Authorization: Bearer <CRON_SECRET>`. Cron endpoints reject every request if unset
+- `TOKEN_SECRET` - Long random string used to sign confirmation and unsubscribe links. Subscribing and alert emails fail if unset
 - `NEXT_PUBLIC_BASE_URL` - Base URL for email links
+
+Optional:
+- `EMAIL_FROM` - Sender address on a verified Resend domain
+
+The app does not use the Supabase JS client, so no Supabase API keys are needed.
 
 ## Deployment
 
@@ -73,7 +78,7 @@ Required:
 
 ### Database Setup
 
-1. Create Neon database integration
+1. Create the Postgres database (Supabase) and set `DATABASE_URL`
 2. Run database migration scripts:
    \`\`\`bash
    # Execute in order:

@@ -29,6 +29,15 @@ export interface LaunchSnapshot {
   last_net_emailed?: string | null
 }
 
+export async function pingDatabase(): Promise<boolean> {
+  try {
+    await sql`SELECT 1`
+    return true
+  } catch {
+    return false
+  }
+}
+
 // Subscriber operations
 export async function createSubscriber(email: string, regionHint?: string): Promise<Subscriber> {
   const result = await sql<Subscriber[]>`

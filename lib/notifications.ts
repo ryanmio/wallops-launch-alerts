@@ -96,29 +96,40 @@ async function processLaunch(launch: any, subscribers: any[], result: Processing
 
   await upsertLaunchSnapshot(upsertPayload)
 
+  // Subscribers only hear about a launch on its day, so scrub/slip emails are only sent for launches
+  // they've already been alerted about. Otherwise placeholder NETs (e.g. "end of year") that Launch
+  // Library moves around would generate a stream of meaningless "rescheduled" emails.
+  const alreadyAlerted = snapshot?.notified_t24 ?? false
+
   // Handle scrub/hold notifications
-  if (hasStatusChange && (launch.status.name.includes("Hold") || launch.status.name.includes("Scrub"))) {
+  if (
+    alreadyAlerted &&
+    hasStatusChange &&
+    (launch.status.name.includes("Hold") || launch.status.name.includes("Scrub"))
+  ) {
     console.log(`[v0] Launch ${launch.name} has been scrubbed/held`)
     await sendNotificationsToSubscribers(launch, subscribers, "scrub", result)
     return
   }
 
+  let notifiedLaunchDay = alreadyAlerted
+
   // Handle schedule slip notifications
-  if (hasScheduleChange && snapshot) {
+  if (alreadyAlerted && hasScheduleChange && snapshot) {
     console.log(`[v0] Launch ${launch.name} has significant schedule slip`)
 
-    // Only send slip notification if we haven't already notified for this NET
-    if (snapshot.last_net_emailed !== launch.net) {
+    // If it slipped onto today, the launch-day email below covers it
+    if (!isLaunchTodayInET(launch.net) && snapshot.last_net_emailed !== launch.net) {
       await sendNotificationsToSubscribers(launch, subscribers, "slip", result)
-
-      // Record that this NET was emailed
-      await updateNotificationStatus(launch.id, { last_net_emailed: launch.net })
     }
-    return
+
+    // Re-arm the launch-day email for the new date
+    await updateNotificationStatus(launch.id, { notified_t24: false, last_net_emailed: launch.net })
+    notifiedLaunchDay = false
   }
 
   // Launch-day notification (single daily send)
-  if (!(snapshot?.notified_t24 ?? false) && isLaunchTodayInET(launch.net)) {
+  if (!notifiedLaunchDay && isLaunchTodayInET(launch.net)) {
     console.log(`Sending launch-day notifications for ${launch.name}`)
     // Reuse "T24" email template which has launch-day wording now
     await sendNotificationsToSubscribers(launch, subscribers, "T24", result)

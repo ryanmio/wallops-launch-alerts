@@ -1,4 +1,5 @@
 import { Resend } from "resend"
+import { generateUnsubscribeToken } from "@/lib/tokens"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -85,7 +86,8 @@ export async function sendLaunchNotification(
     const fromAddress = process.env.EMAIL_FROM || "Wallops Launch Alerts <onboarding@resend.dev>"
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-    const unsubscribeUrl = `${baseUrl}/unsubscribe?email=${encodeURIComponent(email)}`
+    const unsubscribeToken = await generateUnsubscribeToken(email)
+    const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`
 
     let subject = ""
     let content = ""
@@ -174,6 +176,59 @@ export async function sendLaunchNotification(
     return true
   } catch (error) {
     console.error(`[v0] Error sending ${type} notification:`, error)
+    return false
+  }
+}
+
+// Sent when someone asks to unsubscribe by typing an address, so only the inbox owner can confirm
+export async function sendUnsubscribeLinkEmail(email: string): Promise<boolean> {
+  try {
+    const fromAddress = process.env.EMAIL_FROM || "Wallops Launch Alerts <onboarding@resend.dev>"
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+    const token = await generateUnsubscribeToken(email)
+    const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${encodeURIComponent(token)}`
+
+    const { error } = await resend.emails.send({
+      from: fromAddress,
+      to: [email],
+      subject: "Unsubscribe from Wallops Launch Alerts",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Unsubscribe from Wallops Launch Alerts</title>
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #1e293b 0%, #1e40af 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🚀 Wallops Launch Alerts</h1>
+            </div>
+
+            <div style="background: #f8fafc; padding: 30px; border-radius: 10px; border-left: 4px solid #f97316;">
+              <p>We received a request to unsubscribe this address from Wallops Launch Alerts.</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${unsubscribeUrl}"
+                   style="background: #f97316; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">
+                  Unsubscribe
+                </a>
+              </div>
+              <p style="font-size: 14px; color: #64748b; margin-bottom: 0;">
+                If you didn't request this, you can ignore this email and you'll keep receiving alerts.
+              </p>
+            </div>
+          </body>
+        </html>
+      `,
+    })
+
+    if (error) {
+      console.error("[v0] Error sending unsubscribe link email:", error)
+      return false
+    }
+    return true
+  } catch (error) {
+    console.error("[v0] Error sending unsubscribe link email:", error)
     return false
   }
 }

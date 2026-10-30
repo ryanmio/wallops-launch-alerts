@@ -1,4 +1,23 @@
-import { createHash, randomBytes } from "crypto"
+import { createHmac, randomBytes, timingSafeEqual } from "crypto"
+
+// No fallback: a guessable secret would let anyone forge confirm/unsubscribe links
+function getTokenSecret(): string {
+  const secret = process.env.TOKEN_SECRET
+  if (!secret) {
+    throw new Error("TOKEN_SECRET is not configured")
+  }
+  return secret
+}
+
+function sign(payload: string): string {
+  return createHmac("sha256", getTokenSecret()).update(payload).digest("hex")
+}
+
+function signatureMatches(payload: string, signature: string): boolean {
+  const expected = Buffer.from(sign(payload))
+  const provided = Buffer.from(signature)
+  return expected.length === provided.length && timingSafeEqual(expected, provided)
+}
 
 // Generate a secure confirmation token
 export async function generateConfirmationToken(email: string): Promise<string> {
@@ -6,11 +25,7 @@ export async function generateConfirmationToken(email: string): Promise<string> 
   const random = randomBytes(16).toString("hex")
   const payload = `${email}:${timestamp}:${random}`
 
-  const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-  const hash = createHash("sha256").update(payload + secret).digest("hex")
-
-  const token = Buffer.from(`${payload}:${hash}`, "utf8").toString("base64")
-  return token
+  return Buffer.from(`${payload}:${sign(payload)}`, "utf8").toString("base64")
 }
 
 // Verify and decode confirmation token
@@ -32,20 +47,15 @@ export async function verifyConfirmationToken(
       return { valid: false }
     }
 
-    const tokenTime = Number.parseInt(timestamp)
-    const now = Date.now()
-    const maxAge = 24 * 60 * 60 * 1000 // 24 hours
-
-    if (now - tokenTime > maxAge) {
-      return { valid: false, expired: true }
+    if (!signatureMatches(`${tokenEmail}:${timestamp}:${random}`, hash)) {
+      return { valid: false }
     }
 
-    const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-    const payload = `${tokenEmail}:${timestamp}:${random}`
-    const expectedHash = createHash("sha256").update(payload + secret).digest("hex")
+    const tokenTime = Number.parseInt(timestamp)
+    const maxAge = 24 * 60 * 60 * 1000 // 24 hours
 
-    if (hash !== expectedHash) {
-      return { valid: false }
+    if (Date.now() - tokenTime > maxAge) {
+      return { valid: false, expired: true }
     }
 
     return { valid: true }
@@ -57,9 +67,8 @@ export async function verifyConfirmationToken(
 
 // Generate unsubscribe token (simpler, longer-lived)
 export async function generateUnsubscribeToken(email: string): Promise<string> {
-  const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-  const expectedHash = createHash("sha256").update(email + secret).digest("hex")
-  return Buffer.from(`${email}:${expectedHash}`, "utf8").toString("base64")
+  const payload = `unsubscribe:${email}`
+  return Buffer.from(`${email}:${sign(payload)}`, "utf8").toString("base64")
 }
 
 // Verify unsubscribe token
@@ -74,10 +83,7 @@ export async function verifyUnsubscribeToken(token: string): Promise<{ valid: bo
 
     const [email, hash] = parts
 
-    const secret = process.env.TOKEN_SECRET || "fallback-secret-key"
-    const expectedHash = createHash("sha256").update(email + secret).digest("hex")
-
-    if (hash !== expectedHash) {
+    if (!signatureMatches(`unsubscribe:${email}`, hash)) {
       return { valid: false }
     }
 

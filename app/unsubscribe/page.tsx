@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
 export default function UnsubscribePage() {
-  const [status, setStatus] = useState<"form" | "loading" | "success" | "error">("form")
+  const [status, setStatus] = useState<"form" | "loading" | "success" | "linkSent" | "error">("form")
   const [message, setMessage] = useState("")
   const [email, setEmail] = useState("")
   const searchParams = useSearchParams()
@@ -69,7 +69,7 @@ export default function UnsubscribePage() {
       const data = await response.json()
 
       if (data.success) {
-        setStatus("success")
+        setStatus(data.linkSent ? "linkSent" : "success")
         setMessage(data.message)
       } else {
         setStatus("error")
@@ -89,6 +89,7 @@ export default function UnsubscribePage() {
           <div className="mx-auto mb-4">
             {status === "loading" && <Loader2 className="h-12 w-12 animate-spin text-blue-500" />}
             {status === "success" && <CheckCircle className="h-12 w-12 text-green-500" />}
+            {status === "linkSent" && <CheckCircle className="h-12 w-12 text-blue-500" />}
             {status === "error" && <XCircle className="h-12 w-12 text-red-500" />}
             {status === "form" && (
               <div className="h-12 w-12 bg-slate-200 rounded-full flex items-center justify-center text-2xl">📧</div>
@@ -98,6 +99,7 @@ export default function UnsubscribePage() {
             {status === "form" && "Unsubscribe"}
             {status === "loading" && "Processing..."}
             {status === "success" && "Unsubscribed"}
+            {status === "linkSent" && "Check your email"}
             {status === "error" && "Error"}
           </CardTitle>
           <CardDescription>Wallops Launch Alerts</CardDescription>

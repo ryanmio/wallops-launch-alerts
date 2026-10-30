@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server"
 import { checkCronHealth } from "@/lib/cron-utils"
-import { getActiveSubscribers } from "@/lib/database"
+import { pingDatabase } from "@/lib/database"
 
 export async function GET() {
   try {
-    const [cronHealth, subscriberCount] = await Promise.all([
-      checkCronHealth(),
-      getActiveSubscribers()
-        .then((subs) => subs.length)
-        .catch(() => 0),
-    ])
+    const [cronHealth, databaseHealthy] = await Promise.all([checkCronHealth(), pingDatabase()])
 
     const overallHealth = cronHealth.healthy
 
@@ -20,8 +15,7 @@ export async function GET() {
         services: {
           cron: cronHealth,
           database: {
-            healthy: subscriberCount >= 0,
-            activeSubscribers: subscriberCount,
+            healthy: databaseHealthy,
           },
         },
       },
