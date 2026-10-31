@@ -15,7 +15,7 @@
   --secondary: #10b981;
   --secondary-foreground: #ffffff;
   --muted: rgba(255, 255, 255, 0.4);
-  --muted-foreground: #64748b;
+  --muted-foreground: #94a3b8;
   --accent: #10b981;
   --accent-foreground: #ffffff;
   --destructive: #be123c;
@@ -37,8 +37,9 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255, 255, 255, 0.15);
   --sidebar-ring: rgba(8, 145, 178, 0.4);
-  --font-sans: "Inter", "Geist Sans", sans-serif;
-  --font-mono: "JetBrains Mono", "Geist Mono", monospace;
+  /* --font-geist-sans is set on <html> by the geist/font loader in app/layout.tsx */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
 /* Removed light mode tokens since we're going dark-only */

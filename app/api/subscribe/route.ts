@@ -19,9 +19,12 @@ export async function POST(request: NextRequest) {
       JSON.stringify({ DATABASE_URL: hasDbUrl, RESEND_API_KEY: hasResend, TOKEN_SECRET: hasTokenSecret, BASE_URL: baseUrl }),
     )
 
-    console.log("Parsing request body...")
-    const body = await request.json()
-    const { email, regionHint, website } = body
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ success: false, error: "Invalid request" }, { status: 400 })
+    }
+    const { email, website } = body
+    const regionHint = typeof body.regionHint === "string" ? body.regionHint.slice(0, 64) : undefined
 
     // Honeypot field is invisible to people; if it's filled in, it's a bot. Pretend it worked.
     if (website) {
@@ -32,8 +35,8 @@ export async function POST(request: NextRequest) {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!email || !emailRegex.test(email)) {
-      console.log("Invalid email format:", email)
+    if (typeof email !== "string" || email.length > 254 || !emailRegex.test(email.trim())) {
+      console.log("Invalid email format")
       return NextResponse.json({ success: false, error: "Invalid email address" }, { status: 400 })
     }
 

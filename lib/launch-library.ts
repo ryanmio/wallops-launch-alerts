@@ -9,21 +9,32 @@ interface LaunchLibraryResponse<T> {
   results: T[]
 }
 
-interface Launch {
+export interface Launch {
   id: string
+  slug?: string
   name: string
   net: string
+  net_precision?: {
+    id: number
+    name: string
+    abbrev: string
+  } | null
   window_start?: string
   window_end?: string
   status: {
     id: number
     name: string
     abbrev: string
+    description?: string
   }
+  image?: {
+    image_url?: string
+    thumbnail_url?: string
+  } | null
   rocket: {
     configuration: {
       name: string
-      family: string
+      full_name?: string
     }
   }
   pad: {
@@ -37,55 +48,36 @@ interface Launch {
     name: string
     description: string
     type: string
-  }
+  } | null
+  // Only returned with mode=detailed
   info_urls?: Array<{
     url: string
+    priority?: number
+    title?: string
     description?: string
   }>
   vid_urls?: Array<{
-    priority: number
-    source: string
-    publisher: string
-    title: string
-    description: string
-    feature_image: string
     url: string
+    priority?: number
+    title?: string
+    publisher?: string
   }>
   last_updated: string
 }
 
-interface Location {
-  id: number
-  name: string
-  country_code: string
-  map_image: string
-  timezone_name: string
-  total_launch_count: number
-  total_landing_count: number
-  latitude: string
-  longitude: string
-}
+// In-memory cache (per server instance). Next's fetch cache below is the shared layer.
+const cache = new Map<string, { data: unknown; timestamp: number }>()
+const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
 
-// Cache for API responses
-const cache = new Map<string, { data: any; timestamp: number }>()
-const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes for launches
-const LOCATION_CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours for location
-
-// Rate limiting
-let lastRequestTime = 0
+// Per-instance safety cap well under LL2's 15/hour. When it's hit we serve stale data rather than wait:
+// sleeping inside a serverless function just burns its time limit.
+const MAX_REQUESTS_PER_HOUR = 10
 let requestCount = 0
-let hourlyResetTime = Date.now() + 60 * 60 * 1000 // Reset every hour
-
-const MAX_REQUESTS_PER_HOUR = 10 // Hard cap to 10/hour
-const MIN_REQUEST_INTERVAL = 30 * 1000 // 30 seconds minimum between requests
+let hourlyResetTime = Date.now() + 60 * 60 * 1000
 
 async function makeApiRequest<T>(endpoint: string, cacheDuration: number = CACHE_DURATION): Promise<T | null> {
-  const cacheKey = endpoint
-  const cached = cache.get(cacheKey)
-
-  // Return cached data if still valid
+  const cached = cache.get(endpoint) as { data: T; timestamp: number } | undefined
   if (cached && Date.now() - cached.timestamp < cacheDuration) {
-    console.log(`[v0] Using cached data for ${endpoint}`)
     return cached.data
   }
 
@@ -93,136 +85,80 @@ async function makeApiRequest<T>(endpoint: string, cacheDuration: number = CACHE
   if (now > hourlyResetTime) {
     requestCount = 0
     hourlyResetTime = now + 60 * 60 * 1000
-    console.log(`[v0] Rate limit counter reset`)
   }
-
   if (requestCount >= MAX_REQUESTS_PER_HOUR) {
-    const waitTime = hourlyResetTime - now
-    console.log(`[v0] Hourly rate limit reached, waiting ${waitTime}ms until reset`)
-    await new Promise((resolve) => setTimeout(resolve, waitTime))
-    requestCount = 0
-    hourlyResetTime = Date.now() + 60 * 60 * 1000
-  }
-
-  const timeSinceLastRequest = now - lastRequestTime
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
-    console.log(`[v0] Rate limiting: waiting ${waitTime}ms before API request`)
-    await new Promise((resolve) => setTimeout(resolve, waitTime))
+    console.warn(`[v0] Launch Library request cap reached; ${cached ? "serving stale data" : "no data available"}`)
+    return cached?.data ?? null
   }
 
   try {
     const url = `https://ll.thespacedevs.com/2.3.0${endpoint}`
     console.log(`[v0] Making API request to: ${url}`)
 
-    // Use Next.js fetch caching with ISR revalidation to avoid exceeding API limits
+    // Next.js fetch caching shares responses across requests to avoid exceeding API limits
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Wallops-Launch-Alerts/1.0",
       },
-      // Cache on the server for cacheDuration ms, then revalidate in background
       next: { revalidate: Math.max(60, Math.floor(cacheDuration / 1000)) },
     } as RequestInit)
 
-    lastRequestTime = Date.now()
-    requestCount++ // Increment request counter
+    requestCount++
 
     if (!response.ok) {
       console.error(`[v0] API request failed: ${response.status} ${response.statusText}`)
-      return null
+      return cached?.data ?? null
     }
 
-    const data = await response.json()
-
-    // Cache the response
-    cache.set(cacheKey, { data, timestamp: Date.now() })
-    console.log(`[v0] API request successful, data cached`)
-
+    const data = (await response.json()) as T
+    cache.set(endpoint, { data, timestamp: Date.now() })
     return data
   } catch (error) {
     console.error(`[v0] Error making API request to ${endpoint}:`, error)
-    return null
+    return cached?.data ?? null
   }
 }
 
-export async function getUpcomingWallopsLaunches(): Promise<Launch[]> {
-  // Round current time to the nearest 10 minutes to stabilize the cache key
-  const nowDate = new Date()
-  const roundedMs = Math.floor(nowDate.getTime() / (10 * 60 * 1000)) * (10 * 60 * 1000)
+// Upcoming launches from Wallops (LL2 location 21), soonest first. Returns null if Launch Library is unreachable,
+// so callers can tell "nothing scheduled" apart from "couldn't check".
+export async function getUpcomingWallopsLaunches(): Promise<Launch[] | null> {
+  // Round current time to 10 minutes to stabilize the cache key
+  const roundedMs = Math.floor(Date.now() / (10 * 60 * 1000)) * (10 * 60 * 1000)
   const roundedIso = new Date(roundedMs).toISOString()
-  const endpoint = `/launches/?pad__location=21&include_suborbital=true&net__gte=${roundedIso}&ordering=net&limit=10&mode=normal`
+  // mode=detailed includes webcast and info links (~150 KB for 10 launches), so no per-launch detail calls are needed
+  const endpoint = `/launches/?pad__location=21&include_suborbital=true&net__gte=${roundedIso}&ordering=net&limit=10&mode=detailed`
 
   const response = await makeApiRequest<LaunchLibraryResponse<Launch>>(endpoint)
 
   if (!response) {
     console.error("[v0] Failed to fetch upcoming Wallops launches")
-    return []
+    return null
   }
 
-  console.log(`[v0] Found ${response.results.length} upcoming Wallops launches`)
   return response.results
 }
 
-export async function getLaunchDetail(launchId: string): Promise<Launch | null> {
-  const endpoint = `/launches/${launchId}/?mode=normal`
-
-  const launch = await makeApiRequest<Launch>(endpoint)
-
-  if (!launch) {
-    console.error(`[v0] Failed to fetch launch detail for ID: ${launchId}`)
-    return null
-  }
-
-  console.log(`[v0] Fetched launch detail for: ${launch.name}`)
-  return launch
+// Highest-priority link of each kind (LL2 priority: lower is better)
+function bestUrl(urls?: Array<{ url: string; priority?: number }>): string | null {
+  if (!urls?.length) return null
+  return [...urls].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))[0].url
 }
 
-export async function getWallopsLocation(): Promise<Location | null> {
-  const endpoint = "/locations/21/"
-
-  const location = await makeApiRequest<Location>(endpoint, LOCATION_CACHE_DURATION)
-
-  if (!location) {
-    console.error("[v0] Failed to fetch Wallops location data")
-    return null
-  }
-
-  console.log(`[v0] Fetched Wallops location: ${location.name}`)
-  return location
+export function getWebcastUrl(launch: Pick<Launch, "vid_urls">): string | null {
+  return bestUrl(launch.vid_urls)
 }
 
-// Helper function to determine if a launch needs notification
-export function shouldNotifyForLaunch(launch: Launch, notificationType: "T24" | "T2"): boolean {
-  const now = new Date()
-  const launchTime = new Date(launch.net)
-  const timeDiff = launchTime.getTime() - now.getTime()
-
-  // Convert to hours
-  const hoursUntilLaunch = timeDiff / (1000 * 60 * 60)
-
-  if (notificationType === "T24") {
-    // Notify if launch is between 23-25 hours away
-    return hoursUntilLaunch >= 23 && hoursUntilLaunch <= 25
-  } else if (notificationType === "T2") {
-    // Notify if launch is between 1.5-2.5 hours away
-    return hoursUntilLaunch >= 1.5 && hoursUntilLaunch <= 2.5
-  }
-
-  return false
+// Space Launch Now is The Space Devs' own site for Launch Library data, so every launch has a page there.
+// Preferred over info_urls, which are third-party links that go stale (e.g. press releases that have moved).
+export function getInfoUrl(launch: Pick<Launch, "slug" | "info_urls">): string | null {
+  if (launch.slug) return `https://spacelaunchnow.app/launch/${encodeURIComponent(launch.slug)}/`
+  return bestUrl(launch.info_urls)
 }
 
 // Helper function to detect significant schedule slips
-export function hasSignificantScheduleSlip(oldNet: string, newNet: string): boolean {
-  const oldTime = new Date(oldNet)
-  const newTime = new Date(newNet)
-  const diffMinutes = Math.abs(newTime.getTime() - oldTime.getTime()) / (1000 * 60)
+export function hasSignificantScheduleSlip(oldNet: string | Date, newNet: string | Date): boolean {
+  const diffMinutes = Math.abs(new Date(newNet).getTime() - new Date(oldNet).getTime()) / (1000 * 60)
 
   // Consider it significant if the slip is 15 minutes or more
   return diffMinutes >= 15
-}
-
-// Clear cache (useful for testing)
-export function clearCache(): void {
-  cache.clear()
-      console.log("API cache cleared")
 }

@@ -1,9 +1,12 @@
 import { ImageResponse } from "next/og"
 import { getUpcomingWallopsLaunches } from "@/lib/launch-library"
+import { formatNet } from "@/lib/launch-time"
 import { readFileSync } from "fs"
 import { join } from "path"
 
 export const runtime = "nodejs"
+// Regenerate with the homepage so link previews show the current next launch, not the one at deploy time
+export const revalidate = 600
 
 export const size = {
   width: 1200,
@@ -11,27 +14,6 @@ export const size = {
 }
 
 export const contentType = "image/png"
-
-function formatEtDateTime(iso?: string): { date: string; time: string } {
-  if (!iso) {
-    return { date: "TBD", time: "TBD" }
-  }
-  const tz = "America/New_York"
-  const d = new Date(iso)
-  const date = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  }).format(d)
-  const time = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(d)
-  return { date, time: `${time} ET` }
-}
 
 function sanitizeMissionName(mission?: string | null, fallbackName?: string | null): string {
   let name = (mission || "").trim()
@@ -54,11 +36,10 @@ export default async function Image() {
   const next = launches?.[0]
 
   const mission = sanitizeMissionName(next?.mission?.name, next?.name)
-  const { date, time } = formatEtDateTime(next?.net)
-
   const prefix = "NEXT LAUNCH: "
   const sep = " - "
-  const dateTimeText = `${date}${sep}${time}`
+  // Placeholder dates render at their real precision (e.g. "2026"), never as a made-up time of day
+  const dateTimeText = next ? formatNet(next).replace(/ E[DS]T$/, " ET") : "TBD"
 
   // Heuristic total target length for a crisp single line at 1200px
   // Lowered to avoid ellipsis so the line remains visually centered

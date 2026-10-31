@@ -3,11 +3,12 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { CheckCircle, XCircle, Loader2, MailX } from "lucide-react"
 
 export default function UnsubscribePage() {
   const [status, setStatus] = useState<"form" | "loading" | "success" | "linkSent" | "error">("form")
@@ -83,16 +84,16 @@ export default function UnsubscribePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <main className="min-h-screen flex flex-col items-center justify-center gap-6 p-4">
+      <Card className="glass w-full max-w-md text-white">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            {status === "loading" && <Loader2 className="h-12 w-12 animate-spin text-blue-500" />}
-            {status === "success" && <CheckCircle className="h-12 w-12 text-green-500" />}
-            {status === "linkSent" && <CheckCircle className="h-12 w-12 text-blue-500" />}
-            {status === "error" && <XCircle className="h-12 w-12 text-red-500" />}
+            {status === "loading" && <Loader2 className="h-12 w-12 animate-spin text-sky-400" />}
+            {status === "success" && <CheckCircle className="h-12 w-12 text-emerald-400" />}
+            {status === "linkSent" && <CheckCircle className="h-12 w-12 text-sky-400" />}
+            {status === "error" && <XCircle className="h-12 w-12 text-red-400" />}
             {status === "form" && (
-              <div className="h-12 w-12 bg-slate-200 rounded-full flex items-center justify-center text-2xl">📧</div>
+              <MailX className="h-12 w-12 text-slate-300" aria-hidden="true" />
             )}
           </div>
           <CardTitle className="text-2xl">
@@ -107,8 +108,17 @@ export default function UnsubscribePage() {
         <CardContent>
           {status === "form" && (
             <form onSubmit={handleUnsubscribe} className="space-y-4">
+              <p className="text-sm text-muted-foreground text-center">
+                Enter your address and we'll email you a link to confirm. Every alert email also has a one-click
+                unsubscribe link.
+              </p>
               <div>
+                <label htmlFor="unsubscribe-email" className="sr-only">
+                  Email address
+                </label>
                 <Input
+                  id="unsubscribe-email"
+                  autoComplete="email"
                   type="email"
                   placeholder="Enter your email address"
                   value={email}
@@ -123,12 +133,23 @@ export default function UnsubscribePage() {
           )}
 
           {status !== "form" && (
-            <div className="text-center">
+            <div className="text-center space-y-3" aria-live="polite">
               <p className="text-sm text-muted-foreground">{message}</p>
+              {status === "success" && (
+                <p className="text-sm text-muted-foreground">
+                  Changed your mind?{" "}
+                  <Link href="/" className="underline hover:text-white">
+                    Subscribe again
+                  </Link>
+                </p>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
-    </div>
+      <Link href="/" className="text-sm text-slate-300 hover:text-white transition-colors">
+        ← Back to Wallops Launch Alerts
+      </Link>
+    </main>
   )
 }

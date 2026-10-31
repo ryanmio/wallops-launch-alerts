@@ -3,18 +3,11 @@ import {
   upsertLaunchSnapshot,
   getLaunchSnapshot,
   updateNotificationStatus,
+  type Subscriber,
 } from "@/lib/database"
-import {
-  getUpcomingWallopsLaunches,
-  getLaunchDetail,
-  hasSignificantScheduleSlip,
-  shouldNotifyForLaunch,
-} from "@/lib/launch-library"
-import { sendLaunchNotification } from "@/lib/email"
-import { isNightLaunch, generateVisibilityMap } from "@/lib/visibility-map"
-
-// Use DB shape for snapshots (snake_case) to avoid undefined values during SQL upserts
-import type { LaunchSnapshot as DbLaunchSnapshot } from "@/lib/database"
+import { getUpcomingWallopsLaunches, hasSignificantScheduleSlip, type Launch } from "@/lib/launch-library"
+import { sendLaunchNotifications, type LaunchNotificationType } from "@/lib/email"
+import { hasFirmDate, STATUS } from "@/lib/launch-time"
 
 interface ProcessingResult {
   processed: number
@@ -30,27 +23,24 @@ export async function processLaunchNotifications(): Promise<ProcessingResult> {
   }
 
   try {
-    console.log("Starting launch notification processing")
-
-    // Get upcoming Wallops launches
     const launches = await getUpcomingWallopsLaunches()
+    if (!launches) {
+      result.errors.push("Could not fetch launches from Launch Library")
+      return result
+    }
     if (launches.length === 0) {
       console.log("No upcoming Wallops launches found")
       return result
     }
 
-    console.log(`[v0] Processing ${launches.length} upcoming launches`)
-
-    // Get active subscribers
     const subscribers = await getActiveSubscribers()
     if (subscribers.length === 0) {
       console.log("No active subscribers found")
       return result
     }
 
-    console.log(`[v0] Found ${subscribers.length} active subscribers`)
+    console.log(`[v0] Processing ${launches.length} upcoming launches for ${subscribers.length} subscribers`)
 
-    // Process each launch
     for (const launch of launches) {
       try {
         await processLaunch(launch, subscribers, result)
@@ -74,16 +64,21 @@ export async function processLaunchNotifications(): Promise<ProcessingResult> {
   }
 }
 
-async function processLaunch(launch: any, subscribers: any[], result: ProcessingResult): Promise<void> {
-  // Get or create launch snapshot
+// Statuses that mean the launch no longer has a date to look forward to
+const DELAYED_STATUS_IDS = [STATUS.HOLD, STATUS.TBD]
+const DELAYED_STATUS_NAMES = ["On Hold", "To Be Determined"]
+
+async function processLaunch(launch: Launch, subscribers: Subscriber[], result: ProcessingResult): Promise<void> {
   const snapshot = await getLaunchSnapshot(launch.id)
 
-  const isNewLaunch = !snapshot
   const hasStatusChange = Boolean(snapshot && snapshot.status !== launch.status.name)
   const hasScheduleChange = Boolean(snapshot && hasSignificantScheduleSlip(snapshot.net, launch.net))
+  const wasDelayed = Boolean(snapshot && DELAYED_STATUS_NAMES.includes(snapshot.status))
+  // Launch Library keeps far-off launches at placeholder dates (e.g. "TBD, sometime in 2026" stored as Dec 31 00:00 UTC).
+  // Only a Go / To Be Confirmed launch with at least a known day is worth an email.
+  const firmDate = hasFirmDate(launch)
 
-  // Update or create snapshot
-  const upsertPayload: Omit<DbLaunchSnapshot, "id" | "last_updated"> = {
+  await upsertLaunchSnapshot({
     ll2_id: launch.id,
     net: launch.net,
     window_start: launch.window_start ?? null,
@@ -92,133 +87,57 @@ async function processLaunch(launch: any, subscribers: any[], result: Processing
     notified_t24: snapshot?.notified_t24 ?? false,
     notified_t2: snapshot?.notified_t2 ?? false,
     last_net_emailed: snapshot?.last_net_emailed ?? null,
-  }
+  })
 
-  await upsertLaunchSnapshot(upsertPayload)
+  // Subscribers have heard about a launch once they've had its alert or a reschedule email. Delay/reschedule emails
+  // are only sent for those launches; otherwise placeholder dates that Launch Library moves around would generate a
+  // stream of meaningless "rescheduled" emails.
+  const subscribersKnow = Boolean(snapshot?.notified_t24 || snapshot?.last_net_emailed)
 
-  // Subscribers only hear about a launch shortly before it, so scrub/slip emails are only sent for launches
-  // they've already been alerted about. Otherwise placeholder NETs (e.g. "end of year") that Launch
-  // Library moves around would generate a stream of meaningless "rescheduled" emails.
-  const alreadyAlerted = snapshot?.notified_t24 ?? false
-
-  // Handle scrub/hold notifications
-  if (
-    alreadyAlerted &&
-    hasStatusChange &&
-    (launch.status.name.includes("Hold") || launch.status.name.includes("Scrub"))
-  ) {
-    console.log(`[v0] Launch ${launch.name} has been scrubbed/held`)
-    await sendNotificationsToSubscribers(launch, subscribers, "scrub", result)
+  // Put on hold or back to "To Be Determined": tell people not to expect it on the date they were given
+  if (subscribersKnow && hasStatusChange && !wasDelayed && DELAYED_STATUS_IDS.includes(launch.status.id)) {
+    console.log(`[v0] Launch ${launch.name} has been delayed (${launch.status.name})`)
+    await notify(launch, subscribers, "delay", result)
     return
   }
 
-  let notifiedLaunchDay = alreadyAlerted
+  let alerted = snapshot?.notified_t24 ?? false
 
-  // Handle schedule slip notifications
-  if (alreadyAlerted && hasScheduleChange && snapshot) {
-    console.log(`[v0] Launch ${launch.name} has significant schedule slip`)
+  // New firm date, either a NET change or coming back from a hold/TBD
+  if (subscribersKnow && firmDate && (hasScheduleChange || (hasStatusChange && wasDelayed))) {
+    console.log(`[v0] Launch ${launch.name} has been rescheduled`)
 
-    // If it slipped into the alert window, the launch alert below covers it
-    if (!isWithinAlertWindow(launch.net) && snapshot.last_net_emailed !== launch.net) {
-      await sendNotificationsToSubscribers(launch, subscribers, "slip", result)
+    // If it moved into the alert window, the launch alert below covers it
+    if (!isWithinAlertWindow(launch.net)) {
+      await notify(launch, subscribers, "slip", result)
     }
 
     // Re-arm the launch alert for the new date
     await updateNotificationStatus(launch.id, { notified_t24: false, last_net_emailed: launch.net })
-    notifiedLaunchDay = false
+    alerted = false
   }
 
   // Launch alert: one email per launch, sent by the last daily run before it
-  if (!notifiedLaunchDay && isWithinAlertWindow(launch.net)) {
-    console.log(`Sending launch alerts for ${launch.name}`)
-    // "T24" template says "today"/"tomorrow" with the time in ET
-    await sendNotificationsToSubscribers(launch, subscribers, "T24", result)
-
+  if (!alerted && firmDate && isWithinAlertWindow(launch.net)) {
+    console.log(`[v0] Sending launch alerts for ${launch.name}`)
+    await notify(launch, subscribers, "alert", result)
     await updateNotificationStatus(launch.id, { notified_t24: true })
   }
 }
 
-async function sendNotificationsToSubscribers(
-  launch: any,
-  subscribers: any[],
-  notificationType: "T24" | "T2" | "slip" | "scrub",
+async function notify(
+  launch: Launch,
+  subscribers: Subscriber[],
+  type: LaunchNotificationType,
   result: ProcessingResult,
 ): Promise<void> {
-  // Get detailed launch information
-  const detailedLaunch = await getLaunchDetail(launch.id)
-  if (!detailedLaunch) {
-    throw new Error(`Failed to get detailed launch information for ${launch.id}`)
-  }
-
-  // Check if this is a night launch and generate visibility map if needed
-  let visibilityMapBuffer: Buffer | undefined
-  if (isNightLaunch(detailedLaunch.net)) {
-    console.log(`[v0] Night launch detected, generating visibility map`)
-    try {
-      visibilityMapBuffer = await generateVisibilityMap()
-    } catch (error) {
-      console.error(`[v0] Failed to generate visibility map:`, error)
-      // Continue without map rather than failing the entire notification
-    }
-  }
-
-  // Send notifications in batches to avoid overwhelming the email service
-  const batchSize = 10
-  for (let i = 0; i < subscribers.length; i += batchSize) {
-    const batch = subscribers.slice(i, i + batchSize)
-
-    const promises = batch.map(async (subscriber) => {
-      try {
-        const success = await sendLaunchNotification(
-          subscriber.email,
-          detailedLaunch,
-          notificationType,
-          visibilityMapBuffer,
-        )
-
-        if (success) {
-          result.notifications++
-          console.log(`[v0] Notification sent to ${subscriber.email}`)
-        } else {
-          throw new Error("Email sending failed")
-        }
-      } catch (error) {
-        const errorMsg = `Failed to send notification to ${subscriber.email}: ${error}`
-        console.error(`[v0] ${errorMsg}`)
-        result.errors.push(errorMsg)
-      }
-    })
-
-    await Promise.all(promises)
-
-    // Small delay between batches to be respectful to email service
-    if (i + batchSize < subscribers.length) {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
-  }
-}
-
-// Helper function to check if notifications should be paused
-export function shouldPauseNotifications(status: string): boolean {
-  const pauseStatuses = ["Hold", "Scrub", "Failure", "Partial Failure"]
-  return pauseStatuses.some((pauseStatus) => status.includes(pauseStatus))
-}
-
-// Helper function to reset notification flags when launch is rescheduled
-export async function resetNotificationFlags(launchId: string): Promise<void> {
-  try {
-    const snapshot = await getLaunchSnapshot(launchId)
-    if (snapshot) {
-      await updateNotificationStatus(launchId, {
-        notified_t24: false,
-        notified_t2: false,
-        last_net_emailed: null,
-      })
-      console.log(`[v0] Reset notification flags for launch ${launchId}`)
-    }
-  } catch (error) {
-    console.error(`[v0] Error resetting notification flags for launch ${launchId}:`, error)
-  }
+  const { sent, errors } = await sendLaunchNotifications(
+    subscribers.map((subscriber) => subscriber.email),
+    launch,
+    type,
+  )
+  result.notifications += sent
+  result.errors.push(...errors)
 }
 
 // The cron runs once a day (16:00 UTC), so alert for anything launching before the next run.
