@@ -1,30 +1,25 @@
 import { NextResponse } from "next/server"
 import { getUpcomingWallopsLaunches } from "@/lib/launch-library"
 import { isNightLaunch } from "@/lib/visibility-map"
+import { hasExactTime } from "@/lib/launch-time"
 
 export const revalidate = 600 // Revalidate every 10 minutes (600 seconds)
 export const dynamic = "force-static"
 
 export async function GET() {
   try {
-    console.log("Fetching upcoming Wallops launches...")
     const launches = await getUpcomingWallopsLaunches()
-          console.log("Successfully fetched launches:", launches?.length || 0)
-
-    let nightLaunch = false
-    if (launches && launches.length > 0) {
-      try {
-        nightLaunch = isNightLaunch(launches[0].net)
-        console.log("Night launch detection:", nightLaunch)
-      } catch (error) {
-        console.error("[v0] Error detecting night launch:", error)
-      }
+    if (!launches) {
+      throw new Error("Launch Library unavailable")
     }
 
-    const launchesArray = launches || []
+    // Placeholder dates (e.g. "sometime in 2026") have no meaningful time of day
+    const next = launches[0]
+    const nightLaunch = next ? hasExactTime(next) && isNightLaunch(next.net) : false
+
     const response = NextResponse.json({
       success: true,
-      launches: launchesArray,
+      launches,
       isNightLaunch: nightLaunch,
       timestamp: new Date().toISOString(),
     })

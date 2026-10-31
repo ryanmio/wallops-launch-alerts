@@ -24,11 +24,17 @@ async function unsubscribeWithToken(token: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    // One-click unsubscribe from a mail app's button (RFC 8058): token in the URL, form-encoded body
+    const queryToken = request.nextUrl.searchParams.get("token")
+    if (queryToken) {
+      return await unsubscribeWithToken(queryToken)
+    }
+
+    const body = await request.json().catch(() => ({}))
     const { email, token } = body
 
     if (token) {
-      return await unsubscribeWithToken(token)
+      return await unsubscribeWithToken(String(token))
     }
 
     if (!email) {

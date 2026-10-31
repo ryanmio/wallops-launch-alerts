@@ -2,183 +2,190 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
+import Image from "next/image"
+import Link from "next/link"
+import { CalendarClock, Info, MapPin, Moon, Play, Rocket } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import Image from "next/image"
-import { MapPin, Play, Info } from "lucide-react"
+import { STATUS } from "@/lib/launch-time"
+import { VISIBILITY_MAP_PATH } from "@/lib/visibility-map"
 
-interface Launch {
+export interface LaunchView {
   id: string
   name: string
   net: string
-  pad: {
-    name: string
-  }
-  mission?: {
-    description: string
-  }
-  vid_urls?: Array<{
-    url: string
-    title?: string
-    source?: string
-    publisher?: string
-    priority?: number
-  }>
-  info_urls?: Array<{
-    url: string
-    description?: string
-  }>
+  // NET formatted at the precision Launch Library knows it, in Eastern time
+  when: string
+  exactTime: boolean
+  firmDate: boolean
+  night: boolean
+  status: { id: number; name: string }
+  padName: string
+  rocketName: string | null
+  missionDescription: string | null
+  webcastUrl: string | null
+  infoUrl: string | null
 }
 
-function LaunchCountdown({ launch }: { launch: Launch | null }) {
-  const [hasMounted, setHasMounted] = useState(false)
-  const [timeLeft, setTimeLeft] = useState<{
-    days: number
-    hours: number
-    minutes: number
-    seconds: number
-  } | null>(null)
+const STATUS_STYLES: Record<number, string> = {
+  [STATUS.GO]: "bg-emerald-400/15 text-emerald-300 ring-emerald-400/30",
+  [STATUS.TBC]: "bg-amber-400/15 text-amber-200 ring-amber-400/30",
+  [STATUS.HOLD]: "bg-red-400/15 text-red-300 ring-red-400/30",
+  [STATUS.IN_FLIGHT]: "bg-sky-400/15 text-sky-300 ring-sky-400/30",
+}
+
+function StatusBadge({ status }: { status: LaunchView["status"] }) {
+  const style = STATUS_STYLES[status.id] ?? "bg-white/10 text-slate-300 ring-white/20"
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${style}`}>
+      {status.name}
+    </span>
+  )
+}
+
+function CountdownSkeleton() {
+  return (
+    <div className="grid grid-cols-4 gap-3 text-center" aria-hidden="true">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i}>
+          <div className="h-10 bg-white/20 rounded animate-pulse mb-2" />
+          <div className="h-3 bg-white/10 rounded animate-pulse" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function LaunchCountdown({ net }: { net: string }) {
+  // null until mounted, so the server and first client render match
+  const [msLeft, setMsLeft] = useState<number | null>(null)
 
   useEffect(() => {
-    setHasMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!launch) return
-
-    const update = () => {
-      const now = Date.now()
-      const launchTime = new Date(launch.net).getTime()
-      const difference = launchTime - now
-
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((difference % (1000 * 60)) / 1000),
-        })
-      } else {
-        setTimeLeft(null)
-      }
-    }
-
-    // Update immediately on client after hydration
+    const launchTime = new Date(net).getTime()
+    const update = () => setMsLeft(launchTime - Date.now())
     update()
     const timer = setInterval(update, 1000)
     return () => clearInterval(timer)
-  }, [launch])
+  }, [net])
 
-  if (!launch) {
-    return (
-      <div className="text-center text-slate-400">
-        <p>Loading countdown...</p>
-      </div>
-    )
+  if (msLeft === null) return <CountdownSkeleton />
+
+  if (msLeft <= 0) {
+    return <p className="text-center text-lg text-white">Launch time reached. Check the webcast for live status.</p>
   }
 
-  if (!hasMounted) {
-    return (
-      <div className="grid grid-cols-4 gap-3 text-center">
-        <div>
-          <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
-          <div className="h-3 bg-white/10 rounded animate-pulse" />
-        </div>
-        <div>
-          <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
-          <div className="h-3 bg-white/10 rounded animate-pulse" />
-        </div>
-        <div>
-          <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
-          <div className="h-3 bg-white/10 rounded animate-pulse" />
-        </div>
-        <div>
-          <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
-          <div className="h-3 bg-white/10 rounded animate-pulse" />
-        </div>
-      </div>
-    )
-  }
-
-  if (!timeLeft) {
-    return (
-      <div className="text-center">
-        <p className="text-white">Launch has occurred or is happening now!</p>
-      </div>
-    )
-  }
+  const units = [
+    { label: "Days", value: Math.floor(msLeft / 86400000) },
+    { label: "Hours", value: Math.floor((msLeft % 86400000) / 3600000) },
+    { label: "Minutes", value: Math.floor((msLeft % 3600000) / 60000) },
+    { label: "Seconds", value: Math.floor((msLeft % 60000) / 1000) },
+  ]
 
   return (
-    <div className="grid grid-cols-4 gap-3 text-center">
-      <div>
-        <div className="text-2xl font-bold text-white">{timeLeft.days}</div>
-        <div className="text-xs text-slate-400">Days</div>
+    <div className="grid grid-cols-4 gap-3 text-center" role="timer" aria-label="Time until launch">
+      {units.map((unit) => (
+        <div key={unit.label}>
+          <div className="text-3xl md:text-5xl font-bold text-white tabular-nums">
+            {unit.label === "Days" ? unit.value : String(unit.value).padStart(2, "0")}
+          </div>
+          <div className="text-xs uppercase tracking-wider text-slate-400 mt-1">{unit.label}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function NextLaunchCard({ launch }: { launch: LaunchView }) {
+  return (
+    <div className="glass rounded-2xl overflow-hidden h-full flex flex-col">
+      <div className="bg-white/10 p-6 text-center">
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <span className="text-xs uppercase tracking-wider text-slate-400">Next launch</span>
+          <StatusBadge status={launch.status} />
+        </div>
+        <h2 className="text-white text-2xl md:text-3xl font-bold mb-2 text-balance">
+          {launch.infoUrl ? (
+            <a href={launch.infoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+              {launch.name}
+            </a>
+          ) : (
+            launch.name
+          )}
+        </h2>
+        <p className="text-slate-300 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm md:text-base">
+          <span className="inline-flex items-center">
+            <MapPin className="h-4 w-4 mr-1.5 shrink-0" aria-hidden="true" />
+            {launch.padName}
+          </span>
+          {launch.rocketName && (
+            <span className="inline-flex items-center">
+              <Rocket className="h-4 w-4 mr-1.5 shrink-0" aria-hidden="true" />
+              {launch.rocketName}
+            </span>
+          )}
+        </p>
       </div>
-      <div>
-        <div className="text-2xl font-bold text-white">{timeLeft.hours}</div>
-        <div className="text-xs text-slate-400">Hours</div>
-      </div>
-      <div>
-        <div className="text-2xl font-bold text-white">{timeLeft.minutes}</div>
-        <div className="text-xs text-slate-400">Minutes</div>
-      </div>
-      <div>
-        <div className="text-2xl font-bold text-white">{timeLeft.seconds}</div>
-        <div className="text-xs text-slate-400">Seconds</div>
+
+      <div className="p-6 md:p-8 flex-1 flex flex-col justify-center gap-6">
+        {launch.exactTime ? (
+          <>
+            <LaunchCountdown net={launch.net} />
+            <p className="text-center text-slate-300 text-sm md:text-base">{launch.when}</p>
+          </>
+        ) : (
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-wider text-slate-400 mb-2">Expected</p>
+            <p className="text-3xl md:text-4xl font-bold text-white">{launch.when}</p>
+            <p className="mt-3 text-sm text-slate-400 max-w-md mx-auto">
+              {launch.firmDate
+                ? "The launch time hasn't been announced yet."
+                : "This date is a rough estimate, not a confirmed launch date. Subscribers get an email once it's firm."}
+            </p>
+          </div>
+        )}
+
+        {launch.missionDescription && (
+          <p className="text-slate-300 text-sm leading-relaxed line-clamp-4 max-w-2xl mx-auto text-center">
+            {launch.missionDescription}
+          </p>
+        )}
+
+        {(launch.webcastUrl || launch.infoUrl) && (
+          <div className="flex items-center justify-center gap-3">
+            {launch.webcastUrl && (
+              <Button asChild className="bg-white text-slate-900 hover:bg-white/90">
+                <a href={launch.webcastUrl} target="_blank" rel="noopener noreferrer">
+                  <Play className="h-4 w-4" aria-hidden="true" />
+                  Watch
+                </a>
+              </Button>
+            )}
+            {launch.infoUrl && (
+              <Button asChild variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10">
+                <a href={launch.infoUrl} target="_blank" rel="noopener noreferrer">
+                  <Info className="h-4 w-4" aria-hidden="true" />
+                  More Info
+                </a>
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-type HomePageClientProps = {
-  initialLaunch: Launch | null
-  initialIsNightLaunch: boolean
-}
-
-export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: HomePageClientProps) {
+function SubscribeCard() {
   const [email, setEmail] = useState("")
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
-  const [nextLaunch, setNextLaunch] = useState<Launch | null>(initialLaunch)
-  const [isNightLaunch, setIsNightLaunch] = useState(initialIsNightLaunch)
-  const [visibilityMapUrl, setVisibilityMapUrl] = useState<string | null>(
-    initialLaunch && initialIsNightLaunch ? "/images/wallops-visibility-map.webp" : null,
-  )
-  const [launchLoading, setLaunchLoading] = useState(false)
-  const [launchError, setLaunchError] = useState<string | null>(initialLaunch ? null : "No upcoming launches found")
-  const [formattedDate, setFormattedDate] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!nextLaunch || !isNightLaunch || visibilityMapUrl) return
-    setVisibilityMapUrl("/images/wallops-visibility-map.webp")
-  }, [nextLaunch, isNightLaunch, visibilityMapUrl])
-
-  useEffect(() => {
-    if (!nextLaunch) {
-      setFormattedDate(null)
-      return
-    }
-    try {
-      const s = new Date(nextLaunch.net).toLocaleString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        timeZoneName: "short",
-      })
-      setFormattedDate(s)
-    } catch {
-      setFormattedDate(new Date(nextLaunch.net).toISOString())
-    }
-  }, [nextLaunch])
-
-  const handleSubscribe = async (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     // Honeypot: hidden from people, but form-filling bots tend to fill it in
-    const website = new FormData(e.currentTarget as HTMLFormElement).get("website") || ""
+    const website = new FormData(e.currentTarget).get("website") || ""
     setStatus("loading")
+    setMessage("")
 
     try {
       const response = await fetch("/api/subscribe", {
@@ -191,17 +198,133 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
 
       if (response.ok) {
         setStatus("success")
-        setMessage("Check your email to confirm your subscription!")
+        setMessage("Check your email and click the link to confirm your subscription.")
         setEmail("")
       } else {
         setStatus("error")
-        setMessage(data.error || "Something went wrong")
+        setMessage(data.error || "Something went wrong. Please try again.")
       }
-    } catch (error) {
+    } catch {
       setStatus("error")
       setMessage("Network error. Please try again.")
     }
   }
+
+  return (
+    <div className="glass rounded-2xl overflow-hidden h-full flex flex-col">
+      <div className="bg-white/10 p-6">
+        <h2 className="text-white text-xl font-bold mb-2">Get Launch Alerts</h2>
+        <p className="text-slate-300 text-sm">
+          One email before each launch (around noon ET), plus a heads-up if it&apos;s delayed. Night launches include a
+          map of where you can see it.
+        </p>
+      </div>
+      <div className="p-6 flex-1 flex flex-col justify-center">
+        <form onSubmit={handleSubscribe} className="space-y-4">
+          <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
+            <label htmlFor="website">Website</label>
+            <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+          </div>
+          <label htmlFor="subscribe-email" className="sr-only">
+            Email address
+          </label>
+          <Input
+            id="subscribe-email"
+            type="email"
+            autoComplete="email"
+            placeholder="your@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="glass-subtle border-0 text-white placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-white/40"
+          />
+          <Button
+            type="submit"
+            disabled={status === "loading"}
+            className="w-full bg-white text-slate-900 hover:bg-white/90 font-semibold py-3 rounded-xl transition-colors"
+          >
+            {status === "loading" ? (
+              <span className="flex items-center justify-center">
+                <span className="animate-spin w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full mr-2" />
+                Subscribing...
+              </span>
+            ) : (
+              "Subscribe"
+            )}
+          </Button>
+        </form>
+
+        <div aria-live="polite">
+          {message && (
+            <div
+              className={`mt-4 glass-subtle rounded-xl p-4 ${status === "success" ? "border border-emerald-400/40" : "border border-red-500/40"}`}
+            >
+              <p className={`text-sm ${status === "success" ? "text-white" : "text-red-300"}`}>{message}</p>
+            </div>
+          )}
+        </div>
+
+        <p className="text-slate-400 text-xs mt-4 text-center">
+          Your email is used for launch alerts only. It is not shared, sold, or used for any other purpose.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function EmptyLaunchCard({ failed }: { failed: boolean }) {
+  return (
+    <div className="glass rounded-2xl p-8 h-full flex flex-col items-center justify-center text-center gap-3">
+      <CalendarClock className="h-10 w-10 text-slate-400" aria-hidden="true" />
+      <p className="text-white text-lg font-semibold">
+        {failed ? "Launch schedule unavailable" : "Nothing on the schedule"}
+      </p>
+      <p className="text-slate-400 text-sm max-w-sm">
+        {failed
+          ? "We couldn't reach the launch schedule just now. Please check back in a few minutes."
+          : "No launches are currently scheduled from Wallops. Subscribe and we'll email you before the next one."}
+      </p>
+    </div>
+  )
+}
+
+function UpcomingList({ launches }: { launches: LaunchView[] }) {
+  return (
+    <section className="glass rounded-2xl overflow-hidden mb-12" aria-labelledby="upcoming-heading">
+      <div className="bg-white/10 px-6 py-4">
+        <h2 id="upcoming-heading" className="text-white text-xl font-bold">
+          Also on the schedule
+        </h2>
+      </div>
+      <ul className="divide-y divide-white/10">
+        {launches.map((launch) => (
+          <li key={launch.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-semibold">
+                {launch.infoUrl ? (
+                  <a href={launch.infoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    {launch.name}
+                  </a>
+                ) : (
+                  launch.name
+                )}
+              </p>
+              <p className="text-slate-400 text-sm truncate">{launch.padName}</p>
+            </div>
+            <div className="flex items-center gap-3 sm:justify-end">
+              <span className="text-slate-200 text-sm tabular-nums">{launch.when}</span>
+              <StatusBadge status={launch.status} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+export default function HomePageClient({ launches }: { launches: LaunchView[] | null }) {
+  const nextLaunch = launches?.[0] ?? null
+  const laterLaunches = launches?.slice(1) ?? []
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -211,241 +334,89 @@ export default function HomePageClient({ initialLaunch, initialIsNightLaunch }: 
         <div className="absolute bottom-20 right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        <div className="text-center mb-12">
-          <div className="glass-subtle rounded-2xl p-8 mb-6 max-w-4xl mx-auto">
-            <div className="flex items-center justify-center mb-4">
-              <h1 className="text-4xl md:text-6xl font-bold text-white">Wallops Launch</h1>
-            </div>
-            <p className="text-xl md:text-2xl text-slate-300 font-light">Live countdown to the next Wallops launch</p>
-            <div className="mt-4 flex items-center justify-center space-x-2">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              <span className="text-sm text-slate-400 uppercase tracking-wider">Real-time tracking</span>
-            </div>
+      <main className="relative z-10 container mx-auto max-w-6xl px-4 py-8">
+        <header className="text-center mb-10">
+          <div className="glass-subtle rounded-2xl p-8 max-w-4xl mx-auto">
+            <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight">Wallops Launch Alerts</h1>
+            <p className="mt-3 text-lg md:text-2xl text-slate-300 font-light text-balance">
+              Countdown and email alerts for rocket launches from NASA Wallops, Virginia
+            </p>
           </div>
-        </div>
+        </header>
 
         <div className="grid lg:grid-cols-3 gap-8 mb-12 lg:items-stretch">
           <div className="lg:col-span-2">
-            {launchLoading ? (
-              <div className="glass rounded-2xl overflow-hidden h-full">
-                <div className="bg-white/10 p-6 text-center min-h-24 flex flex-col justify-center">
-                  <div className="h-8 bg-white/20 rounded-lg mb-2 animate-pulse max-w-xs mx-auto" />
-                  <div className="h-5 bg-white/10 rounded-lg animate-pulse max-w-48 mx-auto" />
-                </div>
-                <div className="p-8">
-                  <div className="grid grid-cols-4 gap-3 text-center mb-6">
-                    <div>
-                      <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
-                      <div className="h-3 bg-white/10 rounded animate-pulse" />
-                    </div>
-                    <div>
-                      <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
-                      <div className="h-3 bg-white/10 rounded animate-pulse" />
-                    </div>
-                    <div>
-                      <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
-                      <div className="h-3 bg-white/10 rounded animate-pulse" />
-                    </div>
-                    <div>
-                      <div className="h-8 bg-white/20 rounded animate-pulse mb-2" />
-                      <div className="h-3 bg-white/10 rounded animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="h-5 bg-white/10 rounded animate-pulse max-w-80 mx-auto" />
-                  </div>
-                </div>
-              </div>
-            ) : launchError ? (
-              <div className="glass rounded-2xl p-8 text-center h-full">
-                <p className="text-red-400">{launchError}</p>
-              </div>
-            ) : (
-              <div className="glass rounded-2xl overflow-hidden h-full">
-                <div className="bg-white/10 p-6 text-center min-h-24 flex flex-col justify-center">
-                  <h2 className="text-white text-2xl md:text-3xl font-bold mb-2">
-                    {nextLaunch ? (
-                      (() => {
-                        const infoUrl = nextLaunch.info_urls?.[0]?.url
-                        const videoUrl = nextLaunch.vid_urls?.[0]?.url
-                        const primaryLink = infoUrl || videoUrl || null
-                        if (primaryLink) {
-                          return (
-                            <a
-                              href={primaryLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="hover:underline"
-                            >
-                              {nextLaunch.name}
-                            </a>
-                          )
-                        }
-                        return nextLaunch.name
-                      })()
-                    ) : (
-                      "Unknown Mission"
-                    )}
-                  </h2>
-                  <p className="text-slate-300 flex items-center justify-center">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    {nextLaunch?.pad?.name || "Wallops Flight Facility"}
-                  </p>
-                </div>
-                <div className="p-8">
-                  <LaunchCountdown launch={nextLaunch} />
-                  {nextLaunch && (
-                    <div className="mt-6 text-center">
-                      <p className="text-slate-300 text-sm md:text-base" suppressHydrationWarning>
-                        {formattedDate ?? ""}
-                      </p>
-                      <div className="mt-4 flex items-center justify-center gap-3">
-                        {(() => {
-                          const videoUrl = nextLaunch.vid_urls?.[0]?.url || null
-                          return (
-                            <div className="relative group">
-                              {videoUrl ? (
-                                <Button asChild className="bg-white text-slate-900 hover:bg-white/90">
-                                  <a href={videoUrl} target="_blank" rel="noopener noreferrer">
-                                    <Play className="h-4 w-4" />
-                                    Watch
-                                  </a>
-                                </Button>
-                              ) : (
-                                <Button disabled className="bg-white/40 text-slate-900/70 cursor-not-allowed">
-                                  <Play className="h-4 w-4" />
-                                  Watch
-                                </Button>
-                              )}
-                              {!videoUrl && (
-                                <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-                                  No stream provided
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })()}
-                        {(() => {
-                          const infoUrl = nextLaunch.info_urls?.[0]?.url || null
-                          return (
-                            <div className="relative group">
-                              {infoUrl ? (
-                                <Button asChild variant="outline">
-                                  <a href={infoUrl} target="_blank" rel="noopener noreferrer">
-                                    <Info className="h-4 w-4" />
-                                    More Info
-                                  </a>
-                                </Button>
-                              ) : (
-                                <Button disabled variant="outline" className="cursor-not-allowed">
-                                  <Info className="h-4 w-4" />
-                                  More Info
-                                </Button>
-                              )}
-                              {!infoUrl && (
-                                <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-                                  No info link provided
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {nextLaunch ? <NextLaunchCard launch={nextLaunch} /> : <EmptyLaunchCard failed={launches === null} />}
           </div>
-
           <div className="lg:col-span-1">
-            <div className="glass rounded-2xl overflow-hidden h-full flex flex-col">
-              <div className="bg-white/10 p-6 min-h-24 flex flex-col justify-center">
-                <h3 className="text-white text-xl font-bold mb-2">Get Launch Alerts</h3>
-                <p className="text-slate-300 text-sm">One email before each launch (around noon ET)</p>
-              </div>
-              <div className="p-6 flex-1 flex flex-col justify-center">
-                <form onSubmit={handleSubscribe} className="space-y-4">
-                  <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
-                    <label htmlFor="website">Website</label>
-                    <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
-                  </div>
-                  <Input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="glass-subtle border-0 text-white placeholder:text-slate-400 focus:ring-2 focus:ring-white/30"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={status === "loading"}
-                    className="w-full bg-white text-slate-900 hover:bg-white/90 font-semibold py-3 rounded-xl transition-all duration-300 transform hover:scale-105"
-                  >
-                    {status === "loading" ? (
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full mr-2" />
-                        Subscribing...
-                      </div>
-                    ) : (
-                      "Subscribe"
-                    )}
-                  </Button>
-                </form>
-
-                <p className="text-slate-400 text-xs mt-3 text-center">
-                  Your email is used for launch alerts only. It is not shared, sold, or used for any other purpose.
-                </p>
-
-                {message && (
-                  <div className={`mt-4 glass-subtle rounded-xl p-4 ${status === "success" ? "border border-white/30" : "border border-red-500/30"}`}>
-                    <p className={`text-sm ${status === "success" ? "text-white" : "text-red-400"}`}>{message}</p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <SubscribeCard />
           </div>
         </div>
 
-        {visibilityMapUrl && nextLaunch && (
-          <div className="glass rounded-2xl overflow-hidden mb-12">
+        {nextLaunch?.night && (
+          <section className="glass rounded-2xl overflow-hidden mb-12" aria-labelledby="map-heading">
             <div className="bg-white/10 p-6 text-center">
-              <h3 className="text-white text-2xl font-bold flex items-center justify-center mb-2">
-                <MapPin className="h-6 w-6 mr-3 text-white" />
+              <h2 id="map-heading" className="text-white text-2xl font-bold flex items-center justify-center mb-2">
+                <Moon className="h-6 w-6 mr-3" aria-hidden="true" />
                 Night Launch Visibility Map
-              </h3>
-              <p className="text-slate-300">This is a night launch! You may be able to see it from the East Coast.</p>
+              </h2>
+              <p className="text-slate-300">
+                This is a night launch, so you may be able to see it from much of the East Coast.
+              </p>
             </div>
-            <div className="p-8">
+            <div className="p-6 md:p-8">
               <Image
-                src={visibilityMapUrl}
-                alt="Launch Visibility Map"
-                className="w-full rounded-lg max-h-96 object-contain"
+                src={VISIBILITY_MAP_PATH}
+                alt="Map of the East Coast showing how many seconds after liftoff a Wallops launch becomes visible from each area"
+                className="w-full rounded-lg max-h-[32rem] object-contain"
                 width={1251}
                 height={948}
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 900px"
                 quality={60}
               />
             </div>
-          </div>
+          </section>
         )}
 
-        <div className="text-center">
-          <div className="text-slate-400 text-sm flex items-center justify-center gap-3">
-            <a href="https://github.com/ryanmio/wallops-launch-alerts" target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-white transition-colors">
+        {laterLaunches.length > 0 && <UpcomingList launches={laterLaunches} />}
+
+        <footer className="text-center space-y-3">
+          <nav className="text-sm flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <a
+              href="https://github.com/ryanmio/wallops-launch-alerts"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-300 hover:text-white transition-colors"
+            >
               GitHub
             </a>
-            <span className="text-slate-600">•</span>
-            <a href="/terms" className="text-slate-300 hover:text-white transition-colors">Terms of Service</a>
-            <span className="text-slate-600">•</span>
-            <a href="/privacy" className="text-slate-300 hover:text-white transition-colors">Privacy Policy</a>
-          </div>
-        </div>
-      </div>
+            <span className="text-slate-600" aria-hidden="true">•</span>
+            <Link href="/terms" className="text-slate-300 hover:text-white transition-colors">
+              Terms of Service
+            </Link>
+            <span className="text-slate-600" aria-hidden="true">•</span>
+            <Link href="/privacy" className="text-slate-300 hover:text-white transition-colors">
+              Privacy Policy
+            </Link>
+            <span className="text-slate-600" aria-hidden="true">•</span>
+            <Link href="/unsubscribe" className="text-slate-300 hover:text-white transition-colors">
+              Unsubscribe
+            </Link>
+          </nav>
+          <p className="text-xs text-slate-500">
+            Times in Eastern Time. Launch data from{" "}
+            <a
+              href="https://thespacedevs.com/llapi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-slate-300"
+            >
+              The Space Devs Launch Library 2
+            </a>
+            , updated every 10 minutes. Not affiliated with NASA.
+          </p>
+        </footer>
+      </main>
     </div>
   )
 }
-
-

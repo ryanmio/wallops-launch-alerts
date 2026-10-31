@@ -2,11 +2,13 @@ import { NextResponse } from "next/server"
 import { checkCronHealth } from "@/lib/cron-utils"
 import { pingDatabase } from "@/lib/database"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     const [cronHealth, databaseHealthy] = await Promise.all([checkCronHealth(), pingDatabase()])
 
-    const overallHealth = cronHealth.healthy
+    const overallHealth = cronHealth.healthy && databaseHealthy
 
     return NextResponse.json(
       {

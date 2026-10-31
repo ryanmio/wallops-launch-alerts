@@ -1,7 +1,10 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { GeistSans } from "geist/font/sans"
 import "./globals.css"
+
+const DESCRIPTION =
+  "Countdown and free email alerts for rocket launches from NASA Wallops Flight Facility, Virginia, with visibility maps for night launches."
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -10,10 +13,10 @@ export const metadata: Metadata = {
       "http://localhost:3000",
   ),
   title: "Wallops Launch Alerts",
-  description: "Get notified about NASA Wallops launches",
+  description: DESCRIPTION,
   openGraph: {
     title: "Wallops Launch Alerts",
-    description: "Get notified about NASA Wallops launches",
+    description: DESCRIPTION,
     url: "/",
     siteName: "Wallops Launch Alerts",
     images: [
@@ -28,7 +31,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Wallops Launch Alerts",
-    description: "Get notified about NASA Wallops launches",
+    description: DESCRIPTION,
     images: ["/opengraph-image"],
   },
   icons: {
@@ -46,11 +49,14 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
-  themeColor: '#0f172a',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
 }
 
 export default function RootLayout({

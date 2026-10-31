@@ -1,79 +1,39 @@
-import { readFile } from "fs/promises"
-import { join } from "path"
+// Wallops Island launch site
+const WALLOPS_LAT = 37.8339
+const WALLOPS_LON = -75.4877
 
-export function isNightLaunch(netTime: string): boolean {
-  try {
-    const launchTime = new Date(netTime)
+// NASA's Wallops visibility map. The JPEG is for emails (Outlook can't display WebP).
+export const VISIBILITY_MAP_PATH = "/images/wallops-visibility-map.webp"
+export const VISIBILITY_MAP_EMAIL_PATH = "/images/wallops-visibility-map.jpg"
 
-    // Wallops coordinates
-    const wallopsLat = 37.8339
-    const wallopsLon = -75.4877
+// Sun altitude in degrees at Wallops, using the low-precision solar position algorithm from the
+// Astronomical Almanac (good to ~0.1° over this century)
+export function sunAltitude(time: Date): number {
+  const rad = Math.PI / 180
+  const n = time.getTime() / 86400000 + 2440587.5 - 2451545.0 // days since J2000.0
 
-    // Calculate sun position using astronomical formulas
-    const rad = Math.PI / 180
-    const deg = 180 / Math.PI
+  const meanLongitude = (280.46 + 0.9856474 * n) % 360
+  const meanAnomaly = ((357.528 + 0.9856003 * n) % 360) * rad
+  const eclipticLongitude =
+    (meanLongitude + 1.915 * Math.sin(meanAnomaly) + 0.02 * Math.sin(2 * meanAnomaly)) * rad
+  const obliquity = (23.439 - 0.0000004 * n) * rad
 
-    // Convert to Julian day
-    const a = Math.floor((14 - (launchTime.getMonth() + 1)) / 12)
-    const y = launchTime.getFullYear() - a
-    const m = launchTime.getMonth() + 1 + 12 * a - 3
-    const jd =
-      launchTime.getDate() +
-      Math.floor((153 * m + 2) / 5) +
-      365 * y +
-      Math.floor(y / 4) -
-      Math.floor(y / 100) +
-      Math.floor(y / 400) -
-      32045
+  const rightAscension = Math.atan2(Math.cos(obliquity) * Math.sin(eclipticLongitude), Math.cos(eclipticLongitude))
+  const declination = Math.asin(Math.sin(obliquity) * Math.sin(eclipticLongitude))
 
-    const n = jd - 2451545.0
-    const L = (280.46 + 0.9856474 * n) % 360
-    const g = ((357.528 + 0.9856003 * n) % 360) * rad
-    const lambda = (L + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * rad
+  const siderealTime = (280.46061837 + 360.98564736629 * n) % 360
+  const hourAngle = (siderealTime + WALLOPS_LON) * rad - rightAscension
 
-    // Declination
-    const delta = Math.asin(Math.sin(23.439 * rad) * Math.sin(lambda))
-
-    // Hour angle
-    const utc = launchTime.getUTCHours() + launchTime.getUTCMinutes() / 60 + launchTime.getUTCSeconds() / 3600
-    const lst = (100.46 + 0.985647 * n + wallopsLon + 15 * utc) % 360
-    const h = (lst - L) * rad
-
-    // Convert to local coordinates
-    const phi = wallopsLat * rad
-    const altitude = Math.asin(Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.cos(h))
-
-    const sunAltitude = altitude * deg
-
-    // Night launch if sun altitude is ≤ -6° (civil twilight or darker)
-    const isNight = sunAltitude <= -6
-
-    console.log(
-      `[v0] Launch at ${netTime}: Sun altitude ${sunAltitude.toFixed(1)}° - ${isNight ? "NIGHT" : "DAY"} launch`,
-    )
-
-    return isNight
-  } catch (error) {
-    console.error("[v0] Error calculating sun position:", error)
-    return false
-  }
+  const lat = WALLOPS_LAT * rad
+  const altitude = Math.asin(
+    Math.sin(lat) * Math.sin(declination) + Math.cos(lat) * Math.cos(declination) * Math.cos(hourAngle),
+  )
+  return altitude / rad
 }
 
-export async function generateVisibilityMap(): Promise<Buffer> {
-  try {
-    console.log("Using static NASA visibility map asset...")
-
-    // Read the static NASA visibility map
-    const imagePath = join(process.cwd(), "public", "images", "wallops-visibility-map.webp")
-    const buffer = await readFile(imagePath)
-
-    console.log(`[v0] Loaded NASA visibility map: ${buffer.length} bytes`)
-    return buffer
-  } catch (error) {
-    console.error("[v0] Error loading static visibility map:", error)
-
-    // Return a simple fallback message as buffer
-    const fallbackMessage = "Visibility map temporarily unavailable"
-    return Buffer.from(fallbackMessage, "utf-8")
-  }
+// Night launch if the sun is at least 6° below the horizon (past civil twilight)
+export function isNightLaunch(netTime: string): boolean {
+  const time = new Date(netTime)
+  if (Number.isNaN(time.getTime())) return false
+  return sunAltitude(time) <= -6
 }

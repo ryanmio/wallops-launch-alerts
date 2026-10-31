@@ -26,10 +26,10 @@ export async function GET(request: NextRequest) {
       status: {
         activeSubscribers: subscribers.length,
         upcomingLaunchesInDb: upcomingLaunches.length,
-        upcomingLaunchesFromLL2: ll2Launches.length,
+        upcomingLaunchesFromLL2: ll2Launches?.length ?? null,
         nextLaunch: upcomingLaunches[0]
           ? {
-              name: upcomingLaunches[0].ll2_id,
+              ll2Id: upcomingLaunches[0].ll2_id,
               net: upcomingLaunches[0].net,
               notifiedT24: upcomingLaunches[0].notified_t24,
               notifiedT2: upcomingLaunches[0].notified_t2,
